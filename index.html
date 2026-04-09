@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PD2 Maps Explorer</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M16 3l3.5 10.8h11.3l-9.2 6.7 3.5 10.8L16 24.6 6.9 31.3l3.5-10.8-9.2-6.7h11.3z' fill='%23c7a968' opacity='0.9'/%3E%3C/svg%3E">
+<style>
+  @font-face {
+    font-family: 'Exocet';
+    src: url('data/font/exocetblizzardot-medium.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  :root {
+    --bg: #000000;
+    --bg2: #0a0a0a;
+    --bg3: #151515;
+    --panel: #111111;
+    --border: #2a2017;
+    --border-light: #3d3225;
+    --gold: #c7a968;
+    --gold-bright: #e2c882;
+    --gold-dim: #8c7440;
+    --tan: #b09872;
+    --text: #a89070;
+    --text-dim: #6b5d4d;
+    --red: #c03030;
+    --green: #00c000;
+    --orange: #c08020;
+    --blue: #6060c0;
+    --purple: #9070c0;
+    --immune: #ff3030;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Times New Roman', Times, Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--bg);
+    padding: 24px 30px 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  header h1 {
+    font-family: 'Exocet', Georgia, serif;
+    color: var(--gold-bright);
+    font-size: 1.8rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: normal;
+  }
+  header p { color: var(--text-dim); margin-top: 6px; font-size: 0.85rem; }
+  .header-links {
+    margin-top: 10px; display: flex; gap: 12px; justify-content: center;
+  }
+  .header-links a {
+    color: var(--gold-dim); font-size: 0.8rem; text-decoration: none;
+    border: 1px solid var(--border); padding: 4px 12px;
+    transition: all 0.15s;
+  }
+  .header-links a:hover {
+    color: var(--gold); border-color: var(--border-light);
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  /* Category buttons */
+  .category-bar {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
+  }
+  .cat-btn {
+    padding: 10px 28px; border: 1px solid var(--border); background: var(--bg2);
+    color: var(--tan); font-family: 'Exocet', Georgia, serif; font-size: 0.95rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .cat-btn:hover {
+    border-color: var(--border-light); color: var(--gold);
+  }
+  .cat-btn.active {
+    background: var(--border); color: var(--gold-bright); border-color: var(--gold-dim);
+  }
+
+  /* Level selector */
+  .level-selector {
+    display: none; margin-bottom: 20px;
+  }
+  .level-selector.visible { display: block; }
+  .level-selector label {
+    color: var(--gold-dim); font-size: 0.9rem; margin-bottom: 6px; display: block;
+  }
+  .level-selector select {
+    width: 100%; padding: 8px 10px; background: var(--bg2); color: var(--tan);
+    border: 1px solid var(--border); font-family: inherit; font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .level-selector select option { background: var(--bg2); }
+
+  /* Level info panel */
+  .level-panel { display: none; }
+  .level-panel.visible { display: block; }
+  .panel-section {
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 16px 20px; margin-bottom: 12px;
+  }
+  .panel-section h2 {
+    font-family: 'Exocet', Georgia, serif;
+    color: var(--gold); font-size: 1.1rem; margin-bottom: 10px;
+    border-bottom: 1px solid var(--border); padding-bottom: 6px;
+    font-weight: normal;
+  }
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+  .stat-item {
+    display: flex; justify-content: space-between; padding: 4px 8px;
+    border-bottom: 1px solid #0e0e0e;
+  }
+  .stat-label { color: var(--text-dim); font-size: 0.85rem; }
+  .stat-value { color: var(--tan); }
+
+  /* Monster table */
+  .monster-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .monster-table th {
+    background: var(--bg3); color: var(--gold-dim); padding: 8px 6px;
+    text-align: left; position: sticky; top: 0; font-size: 0.8rem;
+    font-weight: normal; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .monster-table td {
+    padding: 6px; border-bottom: 1px solid #0e0e0e; color: var(--tan);
+  }
+  .monster-table tr:hover td { background: #0d0d0d; }
+  .res-summary th {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    font-weight: normal; font-size: 0.8rem;
+  }
+  .monster-name { color: var(--gold); }
+  .res-immune { color: var(--immune); font-weight: bold; }
+  .res-high { color: var(--orange); }
+  .res-normal { color: var(--tan); }
+  .res-negative { color: var(--green); }
+  .type-tag {
+    display: inline-block; padding: 1px 5px; font-size: 0.7rem; margin-right: 2px;
+    border: 1px solid;
+  }
+  .tag-undead { border-color: #443366; color: #9980b0; }
+  .tag-demon { border-color: #663333; color: #c06060; }
+  .tag-boss { border-color: var(--gold-dim); color: var(--gold); }
+  .tag-prime { border-color: #993333; color: #ff4040; }
+  .el-fire { color: #d04010; }
+  .el-ltng, .el-lightning { color: #d0c040; }
+  .el-cold { color: #5090c0; }
+  .el-pois, .el-poison { color: #40a040; }
+  .el-mag, .el-magic { color: var(--purple); }
+
+  .table-wrap { overflow-x: auto; }
+
+  .no-monsters { color: var(--text-dim); font-style: italic; padding: 12px; }
+
+  .tier-bar {
+    display: none; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 20px;
+  }
+  .tier-bar.visible { display: flex; }
+  .tier-btn {
+    padding: 8px 18px; border: 1px solid var(--border); background: var(--bg2);
+    color: var(--text-dim); font-family: 'Exocet', Georgia, serif; font-size: 0.9rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tier-btn:hover {
+    border-color: var(--border-light); color: var(--tan);
+  }
+  .tier-btn.active {
+    background: var(--border); color: var(--gold); border-color: var(--gold-dim);
+  }
+  .tier-btn .zone-lvl {
+    font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 2px;
+  }
+  .map-tag {
+    font-size: 0.7rem; color: var(--purple); margin-left: 4px;
+  }
+
+  @media (max-width: 768px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .monster-table { font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PD2 Maps Explorer</h1>
+  <p>Project Diablo 2 -- Hell Difficulty Level & Monster Reference</p>
+  <div class="header-links">
+    <a href="map-dmg-calc.html">Damage Calculator</a>
+    <a href="https://maaaaaarrk.github.io/Hiim-PD2-Resources/" target="_blank">Hiim Resources</a>
+    <a href="https://github.com/Maaaaaarrk/pd2_maps_explorer/issues" target="_blank">Report Issue</a>
+  </div>
+</header>
+<div class="container">
+  <div class="category-bar">
+    <button class="cat-btn" data-cat="campaign">Campaign (Acts 1-5)</button>
+    <button class="cat-btn" data-cat="endgame">Endgame (Maps & Bosses)</button>
+  </div>
+  <div class="tier-bar" id="tierBar"></div>
+  <div class="level-selector" id="levelSelector">
+    <label for="levelSelect">Select a Level:</label>
+    <select id="levelSelect"><option value="">-- Choose --</option></select>
+  </div>
+  <div class="level-panel" id="levelPanel">
+    <div class="panel-section">
+      <h2 id="levelTitle">Level Info</h2>
+      <div class="stat-grid" id="levelStats"></div>
+    </div>
+    <div class="panel-section">
+      <h2>Monsters (Hell Difficulty)</h2>
+      <div class="table-wrap" id="monsterTableWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script src="data/levels.js"></script>
+<script src="data/monstats.js"></script>
+<script src="data/tiers.js"></script>
+<script src="data/monlvl.js"></script>
+<script>
+const CAMPAIGN_MAX_ID = 136;
+const ACT_NAMES = { 0: "Act 1", 1: "Act 2", 2: "Act 3", 3: "Act 4", 4: "Act 5" };
+
+// Auto-populate the Bosses tier with all endgame levels not in map tiers
+const DISABLED_LEVELS = new Set([152, 153, 157, 159, 165, 166, 172, 182, 184, 187, 194, 196]);
+(function() {
+  const mapIds = new Set();
+  tierData.forEach(t => {
+    if (!t.auto) t.maps.forEach(m => mapIds.add(m.id));
+  });
+  const bossTier = tierData.find(t => t.auto);
+  if (bossTier) {
+    bossTier.maps = levelsData
+      .filter(l => l.id > CAMPAIGN_MAX_ID && !mapIds.has(l.id) && !DISABLED_LEVELS.has(l.id))
+      .map(l => ({ id: l.id, name: l.name }));
+  }
+})();
+
+let currentCategory = null;
+let currentTierIdx = null;
+
+function setHash(cat, tierIdx, levelId) {
+  let hash = cat;
+  if (cat === "endgame" && tierIdx != null) {
+    hash += "/" + tierIdx;
+  }
+  if (levelId != null) hash += "/" + levelId;
+  history.replaceState(null, "", "#" + hash);
+}
+
+function parseHash() {
+  const h = location.hash.replace(/^#/, "");
+  if (!h) return null;
+  const parts = h.split("/");
+  const cat = parts[0];
+  if (cat === "campaign") {
+    return { cat, levelId: parts[1] ? parseInt(parts[1]) : null };
+  } else if (cat === "endgame") {
+    return {
+      cat,
+      tierIdx: parts[1] != null ? parseInt(parts[1]) : null,
+      levelId: parts[2] ? parseInt(parts[2]) : null,
+    };
+  }
+  return null;
+}
+
+document.querySelectorAll(".cat-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    selectCategory(btn.dataset.cat);
+    setHash(btn.dataset.cat);
+  });
+});
+
+function selectCategory(category) {
+  currentCategory = category;
+  currentTierIdx = null;
+  const tierBar = document.getElementById("tierBar");
+  const selector = document.getElementById("levelSelector");
+  const panel = document.getElementById("levelPanel");
+  tierBar.classList.remove("visible");
+  tierBar.innerHTML = "";
+  selector.classList.remove("visible");
+  panel.classList.remove("visible");
+
+  if (category === "campaign") {
+    populateCampaignSelect();
+  } else {
+    showTierButtons();
+  }
+}
+
+function showTierButtons() {
+  const tierBar = document.getElementById("tierBar");
+  tierBar.innerHTML = "";
+  tierData.forEach((t, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "tier-btn";
+    btn.dataset.tierIdx = idx;
+    btn.innerHTML = t.zoneLevel
+      ? `${t.tier}<span class="zone-lvl">Zone ${t.zoneLevel}</span>`
+      : t.tier;
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tier-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      populateTierSelect(idx);
+      setHash("endgame", idx);
+    });
+    tierBar.appendChild(btn);
+  });
+  tierBar.classList.add("visible");
+}
+
+function populateTierSelect(tierIdx) {
+  currentTierIdx = tierIdx;
+  const tier = tierData[tierIdx];
+  const sel = document.getElementById("levelSelect");
+  const wrapper = document.getElementById("levelSelector");
+  sel.innerHTML = '<option value="">-- Choose a Map --</option>';
+
+  tier.maps.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.tag ? `${m.name} [${m.tag}]` : m.name;
+    sel.appendChild(opt);
+  });
+
+  wrapper.classList.add("visible");
+  document.getElementById("levelPanel").classList.remove("visible");
+
+  sel.onchange = () => {
+    const id = parseInt(sel.value);
+    if (id) {
+      const tierMap = tier.maps.find(m => m.id === id);
+      showLevel(id, tierMap ? tierMap.name : null);
+      setHash("endgame", tierIdx, id);
+    } else {
+      document.getElementById("levelPanel").classList.remove("visible");
+      setHash("endgame", tierIdx);
+    }
+  };
+}
+
+function populateCampaignSelect() {
+  const sel = document.getElementById("levelSelect");
+  const wrapper = document.getElementById("levelSelector");
+  sel.innerHTML = '<option value="">-- Choose a Level --</option>';
+
+  const filtered = levelsData.filter(l => l.id <= CAMPAIGN_MAX_ID);
+  const acts = {};
+  filtered.forEach(l => {
+    const actName = ACT_NAMES[l.act] || `Act ${l.act + 1}`;
+    if (!acts[actName]) acts[actName] = [];
+    acts[actName].push(l);
+  });
+  for (const [actName, levels] of Object.entries(acts)) {
+    const group = document.createElement("optgroup");
+    group.label = actName;
+    levels.forEach(l => {
+      const opt = document.createElement("option");
+      opt.value = l.id;
+      opt.textContent = l.name;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  }
+
+  wrapper.classList.add("visible");
+  document.getElementById("levelPanel").classList.remove("visible");
+
+  sel.onchange = () => {
+    const id = parseInt(sel.value);
+    if (id) {
+      showLevel(id);
+      setHash("campaign", null, id);
+    } else {
+      document.getElementById("levelPanel").classList.remove("visible");
+      setHash("campaign");
+    }
+  };
+}
+
+// Restore state from URL hash on page load
+function restoreFromHash() {
+  const state = parseHash();
+  if (!state) return;
+
+  // Activate category button
+  document.querySelectorAll(".cat-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.cat === state.cat);
+  });
+
+  if (state.cat === "campaign") {
+    populateCampaignSelect();
+    if (state.levelId) {
+      document.getElementById("levelSelect").value = state.levelId;
+      showLevel(state.levelId);
+    }
+  } else if (state.cat === "endgame") {
+    showTierButtons();
+    if (state.tierIdx != null && tierData[state.tierIdx]) {
+      document.querySelectorAll(".tier-btn").forEach(b => {
+        b.classList.toggle("active", parseInt(b.dataset.tierIdx) === state.tierIdx);
+      });
+      populateTierSelect(state.tierIdx);
+      if (state.levelId) {
+        document.getElementById("levelSelect").value = state.levelId;
+        const tierMap = tierData[state.tierIdx].maps.find(m => m.id === state.levelId);
+        showLevel(state.levelId, tierMap ? tierMap.name : null);
+      }
+    }
+  }
+}
+
+restoreFromHash();
+window.addEventListener("hashchange", restoreFromHash);
+
+function showLevel(levelId, displayName) {
+  const level = levelsData.find(l => l.id === levelId);
+  if (!level) return;
+
+  document.getElementById("levelTitle").textContent = displayName || level.name;
+
+  const stats = document.getElementById("levelStats");
+  const statItems = [
+    ["Level ID", level.id],
+    ["Act", ACT_NAMES[level.act] || level.act],
+    ["Area Level (Hell)", level.monLvlEx_H || level.monLvl_H || "N/A"],
+    ["Monster Density (Hell)", level.monDen_H || "N/A"],
+    ["Unique/Champ Min", level.monUMin_H || "N/A"],
+    ["Unique/Champ Max", level.monUMax_H || "N/A"],
+    ["Size (Hell)", level.sizeX_H && level.sizeY_H ? `${level.sizeX_H} x ${level.sizeY_H}` : "N/A"],
+    ["Indoor/Outdoor", level.isInside ? "Indoor" : "Outdoor"],
+  ];
+  stats.innerHTML = statItems.map(([label, val]) =>
+    `<div class="stat-item"><span class="stat-label">${label}</span><span class="stat-value">${val}</span></div>`
+  ).join("");
+
+  const areaLvl = level.monLvlEx_H || level.monLvl_H;
+  const monIds = [...new Set(level.monsters_hell)];
+  const wrap = document.getElementById("monsterTableWrap");
+
+  if (monIds.length === 0) {
+    wrap.innerHTML = '<div class="no-monsters">No monsters spawn in this area.</div>';
+  } else {
+    const monData = monIds.map(id => monstersData[id]).filter(Boolean);
+    if (monData.length === 0) {
+      wrap.innerHTML = '<div class="no-monsters">Monster data not found for this area.</div>';
+    } else {
+      wrap.innerHTML = buildMonsterTable(monData, areaLvl);
+    }
+  }
+
+  document.getElementById("levelPanel").classList.add("visible");
+}
+
+const RES_BG = {
+  phys:   "rgba(160, 120, 80, 0.25)",
+  magic:  "rgba(80, 80, 180, 0.25)",
+  fire:   "rgba(180, 50, 10, 0.25)",
+  light:  "rgba(180, 170, 40, 0.25)",
+  cold:   "rgba(50, 100, 170, 0.25)",
+  poison: "rgba(40, 140, 40, 0.25)",
+};
+
+function resStyle(val, dmgType) {
+  let cls = "res-normal";
+  if (val >= 100) cls = "res-immune";
+  else if (val >= 50) cls = "res-high";
+  else if (val < 0) cls = "res-negative";
+
+  let style = "";
+  if (val >= 100) {
+    style = ` style="background:${RES_BG[dmgType] || ''}"`;
+  }
+  return { cls, style };
+}
+
+function resDisplay(val) {
+  if (val >= 100) return `${val}%`;
+  return `${val}%`;
+}
+
+function typeTags(mon) {
+  let tags = "";
+  if (mon.lUndead || mon.hUndead) tags += '<span class="type-tag tag-undead">Undead</span>';
+  if (mon.demon) tags += '<span class="type-tag tag-demon">Demon</span>';
+  if (mon.boss) tags += '<span class="type-tag tag-boss">Boss</span>';
+  if (mon.primeevil) tags += '<span class="type-tag tag-prime">Prime Evil</span>';
+  return tags;
+}
+
+function elDamageStr(mon) {
+  const elements = [];
+  for (let i = 1; i <= 3; i++) {
+    const type = mon[`el${i}Type`];
+    const min = mon[`el${i}MinD_H`];
+    const max = mon[`el${i}MaxD_H`];
+    const pct = mon[`el${i}Pct_H`];
+    if (type && (min || max)) {
+      const cssClass = `el-${type.toLowerCase()}`;
+      elements.push(`<span class="${cssClass}">${capitalize(type)} ${min}-${max} (${pct}%)</span>`);
+    }
+  }
+  return elements.length ? elements.join("<br>") : "-";
+}
+
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function maxResCell(val, dmgType) {
+  const r = resStyle(val, dmgType);
+  return `<th class="${r.cls}"${r.style}>${resDisplay(val)}</th>`;
+}
+
+function realHP(baseHP, areaLvl) {
+  const entry = monLvlData[String(areaLvl)];
+  if (!entry) return baseHP;
+  return Math.floor(baseHP * entry.lhp_H / 100);
+}
+
+function buildMonsterTable(monsters, areaLvl) {
+  const maxPhys = Math.max(...monsters.map(m => m.resDm_H));
+  const maxMagic = Math.max(...monsters.map(m => m.resMa_H));
+  const maxFire = Math.max(...monsters.map(m => m.resFi_H));
+  const maxLight = Math.max(...monsters.map(m => m.resLi_H));
+  const maxCold = Math.max(...monsters.map(m => m.resCo_H));
+  const maxPoison = Math.max(...monsters.map(m => m.resPo_H));
+
+  let html = `<table class="monster-table">
+    <thead>
+    <tr>
+      <th>Monster</th>
+      <th>Type</th>
+      <th>Level</th>
+      <th>HP</th>
+      <th>AC</th>
+      <th>Atk1 Dmg</th>
+      <th>Atk2 Dmg</th>
+      <th>Phys</th>
+      <th>Magic</th>
+      <th>Fire</th>
+      <th>Light</th>
+      <th>Cold</th>
+      <th>Poison</th>
+      <th>Elemental Dmg</th>
+      <th>Base Exp</th>
+      <th>Treasure Class (Hell)</th>
+    </tr>
+    <tr class="res-summary">
+      <th colspan="7" style="text-align:right;color:var(--text-dim);font-weight:normal;font-style:italic">Highest Res</th>
+      ${maxResCell(maxPhys, "phys")}
+      ${maxResCell(maxMagic, "magic")}
+      ${maxResCell(maxFire, "fire")}
+      ${maxResCell(maxLight, "light")}
+      ${maxResCell(maxCold, "cold")}
+      ${maxResCell(maxPoison, "poison")}
+      <th colspan="3"></th>
+    </tr>
+    </thead><tbody>`;
+
+  monsters.forEach(m => {
+    const tcParts = [m.tc_H, m.tcChamp_H, m.tcUnique_H, m.tcQuest_H].filter(Boolean);
+    const rPhys = resStyle(m.resDm_H, "phys");
+    const rMagic = resStyle(m.resMa_H, "magic");
+    const rFire = resStyle(m.resFi_H, "fire");
+    const rLight = resStyle(m.resLi_H, "light");
+    const rCold = resStyle(m.resCo_H, "cold");
+    const rPoison = resStyle(m.resPo_H, "poison");
+    html += `<tr>
+      <td><span class="monster-name">${m.nameStr || m.id}</span><br><small style="color:var(--text-dim)">${m.id}</small></td>
+      <td>${typeTags(m)}</td>
+      <td>${m.level_H || "-"}</td>
+      <td>${m.minHP_H || m.maxHP_H ? `${realHP(m.minHP_H, areaLvl).toLocaleString()}-${realHP(m.maxHP_H, areaLvl).toLocaleString()}` : "-"}</td>
+      <td>${m.ac_H || "-"}</td>
+      <td>${m.a1MinD_H || m.a1MaxD_H ? `${m.a1MinD_H}-${m.a1MaxD_H}` : "-"}</td>
+      <td>${m.a2MinD_H || m.a2MaxD_H ? `${m.a2MinD_H}-${m.a2MaxD_H}` : "-"}</td>
+      <td class="${rPhys.cls}"${rPhys.style}>${resDisplay(m.resDm_H)}</td>
+      <td class="${rMagic.cls}"${rMagic.style}>${resDisplay(m.resMa_H)}</td>
+      <td class="${rFire.cls}"${rFire.style}>${resDisplay(m.resFi_H)}</td>
+      <td class="${rLight.cls}"${rLight.style}>${resDisplay(m.resLi_H)}</td>
+      <td class="${rCold.cls}"${rCold.style}>${resDisplay(m.resCo_H)}</td>
+      <td class="${rPoison.cls}"${rPoison.style}>${resDisplay(m.resPo_H)}</td>
+      <td>${elDamageStr(m)}</td>
+      <td>${m.exp || "-"}</td>
+      <td>${tcParts.length ? tcParts.join("<br>") : "-"}</td>
+    </tr>`;
+  });
+
+  html += "</tbody></table>";
+  return html;
+}
+</script>
+</body>
+</html>

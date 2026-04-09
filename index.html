@@ -33,6 +33,24 @@
     --immune: #ff3030;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+  ::-webkit-scrollbar-corner { background: var(--bg); }
+  input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--bg3); border: 1px solid var(--border-light); cursor: pointer;
+    vertical-align: middle; position: relative; flex-shrink: 0;
+  }
+  input[type="checkbox"]:checked {
+    background: var(--gold-dim); border-color: var(--gold);
+  }
+  input[type="checkbox"]:checked::after {
+    content: ''; position: absolute; left: 3px; top: 0px; width: 5px; height: 9px;
+    border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  input[type="checkbox"]:hover { border-color: var(--gold-dim); }
   body {
     font-family: 'Times New Roman', Times, Georgia, serif;
     background: var(--bg);

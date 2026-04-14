@@ -248,7 +248,7 @@ ELEM_TYPES.forEach(e => ELEM_MAP[e.key] = e);
 
 const state = {
   breaking: {},   // per-element breaking pierce
-  sources: [],    // [{type, dmg, pierce, fpa}]
+  sources: [],    // [{type, dmg, pierce, fpa, cbChance, ranged}]
   playerCount: 1, fortification: false, incMaxHp: 0,
   selectedMaps: [],
 };
@@ -305,6 +305,15 @@ function calcDmgHit(dmg, res, pierceNon, pierceBreak) {
   return r < 0 ? dmg * (1 + Math.abs(r) / 100) : dmg * (1 - r / 100);
 }
 
+// Crushing Blow damage per hit for a source against a monster
+function cbDmgPerHit(src, monMaxHp) {
+  if (!src.cbChance || src.cbChance <= 0) return 0;
+  const cbDivisor = 7 + (state.playerCount - 1) * 1.4;
+  const rangedMult = src.ranged ? 1.5 : 1;
+  const baseCbDmg = monMaxHp / (cbDivisor * rangedMult);
+  return baseCbDmg * (Math.min(src.cbChance, 100) / 100);
+}
+
 // DPS for a single source against a monster
 function sourceDps(src, monster) {
   const elem = ELEM_MAP[src.type];
@@ -319,16 +328,33 @@ function sourceDps(src, monster) {
   return dmgPerHit * hitsPerSec;
 }
 
+// Crushing blow DPS for a source (physical damage, uses phys res)
+function sourceCbDps(src, monster) {
+  if (!src.cbChance || src.fpa <= 0) return 0;
+  const maxHp = monsterMaxHp(monster);
+  const rawCb = cbDmgPerHit(src, maxHp);
+  // CB deals physical damage, apply physical resistance
+  const physRes = monster[ELEM_MAP["phys"].resKey];
+  const cbAfterRes = calcDmgHit(rawCb, physRes, 0, state.breaking["phys"]);
+  const hitsPerSec = FRAMES_PER_SEC / src.fpa;
+  return cbAfterRes * hitsPerSec;
+}
+
 // Total DPS across all sources
 function totalDps(monster) {
-  return state.sources.reduce((sum, src) => sum + sourceDps(src, monster), 0);
+  return state.sources.reduce((sum, src) => sum + sourceDps(src, monster) + sourceCbDps(src, monster), 0);
 }
 
 // Per-element total DPS (summing all sources of that element)
 function elemDps(elemKey, monster) {
-  return state.sources
+  let dps = state.sources
     .filter(s => s.type === elemKey)
     .reduce((sum, src) => sum + sourceDps(src, monster), 0);
+  // CB damage is always physical, add it to phys column
+  if (elemKey === "phys") {
+    dps += state.sources.reduce((sum, src) => sum + sourceCbDps(src, monster), 0);
+  }
+  return dps;
 }
 
 function monsterMaxHp(mon) {
@@ -342,6 +368,7 @@ function hasSources() {
 }
 
 function hasElemSources(elemKey) {
+  if (elemKey === "phys" && state.sources.some(s => s.cbChance > 0)) return true;
   return state.sources.some(s => s.type === elemKey && s.dmg > 0);
 }
 
@@ -361,8 +388,8 @@ function buildBreakInputs() {
 }
 
 // ---- UI: Damage Sources ----
-function addSource(type, dmg, pierce, fpa) {
-  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10 };
+function addSource(type, dmg, pierce, fpa, cbChance, ranged) {
+  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10, cbChance: cbChance || 0, ranged: ranged || false };
   state.sources.push(src);
   renderSourceCard(src);
   render(); updateHash();
@@ -397,6 +424,8 @@ function renderSourceCard(src) {
       <tr><th>Damage</th><td><input type="text" data-src="${src.id}" data-field="dmg" value="${src.dmg}" inputmode="numeric"></td></tr>
       <tr><th>Pierce %</th><td><input type="text" data-src="${src.id}" data-field="pierce" value="${src.pierce}" inputmode="numeric"></td></tr>
       <tr><th>FPA</th><td><input type="text" data-src="${src.id}" data-field="fpa" value="${src.fpa}" inputmode="numeric" class="${isPoison ? 'disabled-input' : ''}"></td></tr>
+      <tr><th>CB %</th><td><input type="text" data-src="${src.id}" data-field="cbChance" value="${src.cbChance}" inputmode="numeric" title="Crushing Blow chance %"></td></tr>
+      <tr><th>Ranged</th><td><label><input type="checkbox" data-src="${src.id}" data-field="ranged" ${src.ranged ? 'checked' : ''}> Ranged attack</label></td></tr>
     </tbody></table>
   `;
   container.appendChild(div);
@@ -415,12 +444,18 @@ function renderSourceCard(src) {
         const fpaInput = div.querySelector('[data-field="fpa"]');
         if (inp.value === "poison") { fpaInput.classList.add("disabled-input"); }
         else { fpaInput.classList.remove("disabled-input"); }
+      } else if (field === "ranged") {
+        s.ranged = inp.checked;
       } else {
         s[field] = parseInt(inp.value) || 0;
       }
       render(); updateHash();
     };
-    inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", handler);
+    if (inp.type === "checkbox") {
+      inp.addEventListener("change", handler);
+    } else {
+      inp.addEventListener(inp.tagName === "SELECT" ? "change" : "input", handler);
+    }
   });
 }
 
@@ -538,7 +573,7 @@ function updateHash() {
   ELEM_TYPES.forEach(e => { if (state.breaking[e.key]) p["b_" + e.key] = state.breaking[e.key]; });
   if (state.sources.length) {
     // Encode sources as: type.dmg.pierce.fpa|type.dmg.pierce.fpa|...
-    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}`).join("|");
+    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}.${s.cbChance || 0}.${s.ranged ? 1 : 0}`).join("|");
   }
   if (state.playerCount > 1) p.pc = state.playerCount;
   if (state.fortification) p.fort = 1;
@@ -563,10 +598,12 @@ function restoreFromHash() {
 
   if (params.src) {
     params.src.split("|").forEach(s => {
-      const [type, dmg, pierce, fpa] = s.split(".");
+      const parts = s.split(".");
+      const [type, dmg, pierce, fpa] = parts;
       state.sources.push({
         id: sourceIdCounter++, type,
         dmg: parseInt(dmg) || 0, pierce: parseInt(pierce) || 0, fpa: parseInt(fpa) || 10,
+        cbChance: parseInt(parts[4]) || 0, ranged: parts[5] === "1",
       });
     });
   }

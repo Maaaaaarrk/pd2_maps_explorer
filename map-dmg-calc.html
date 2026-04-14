@@ -234,6 +234,7 @@
 <script src="data/monstats.js"></script>
 <script src="data/tiers.js"></script>
 <script src="data/monlvl.js"></script>
+<script src="data/shared.js"></script>
 <script>
 const FRAMES_PER_SEC = 25;
 const ELEM_TYPES = [
@@ -257,15 +258,7 @@ ELEM_TYPES.forEach(e => state.breaking[e.key] = 0);
 
 let sourceIdCounter = 0;
 
-// Map/monster data
-const CAMPAIGN_MAX_ID = 136;
-const DISABLED_LEVELS = new Set([152, 153, 157, 159, 165, 166, 172, 182, 184, 187, 194, 196]);
-
-function realHP(baseHP, areaLevel) {
-  const entry = monLvlData[String(areaLevel)];
-  if (!entry) return baseHP;
-  return Math.floor(baseHP * entry.lhp_H / 100);
-}
+// Map/monster data (CAMPAIGN_MAX_ID, DISABLED_LEVELS, realHP loaded from data/shared.js)
 
 function buildMapData() {
   const maps = [];
@@ -306,7 +299,10 @@ function calcDmgHit(dmg, res, pierceNon, pierceBreak) {
   return r < 0 ? dmg * (1 + Math.abs(r) / 100) : dmg * (1 - r / 100);
 }
 
-// Crushing Blow damage per hit for a source against a monster
+// Crushing Blow damage per hit for a source against a monster (Season 13 mechanics).
+// CB deals flat damage based on max HP (does NOT decay with current HP).
+// Divisor scales from 7 (players 1) to 16.8 (players 8).
+// Ranged attacks apply a 1.5x multiplier to the divisor.
 function cbDmgPerHit(src, monMaxHp) {
   if (!src.cbChance || src.cbChance <= 0) return 0;
   const cbDivisor = 7 + (state.playerCount - 1) * 1.4;
@@ -315,7 +311,7 @@ function cbDmgPerHit(src, monMaxHp) {
   return baseCbDmg * (Math.min(src.cbChance, 100) / 100);
 }
 
-// DPS for a single source against a monster
+// DPS for a single source against a monster (excluding CB)
 function sourceDps(src, monster) {
   const elem = ELEM_MAP[src.type];
   if (!elem) return 0;
@@ -348,6 +344,16 @@ function totalDps(monster) {
 
 // Per-element total DPS (summing all sources of that element)
 function elemDps(elemKey, monster) {
+  if (elemKey === "poison") {
+    // Only strongest poison source (Finding 3)
+    const poisonSources = state.sources.filter(s => s.type === "poison" && s.dmg > 0);
+    if (poisonSources.length === 0) return 0;
+    const res = monster[ELEM_MAP["poison"].resKey];
+    return Math.max(...poisonSources.map(src =>
+      calcDmgHit(src.dmg, res, src.pierce, state.breaking["poison"])
+    ));
+  }
+
   let dps = state.sources
     .filter(s => s.type === elemKey)
     .reduce((sum, src) => sum + sourceDps(src, monster), 0);
@@ -527,18 +533,20 @@ function render() {
       ELEM_TYPES.forEach(e => {
         const res = mon[e.resKey];
         const totalBreak = state.breaking[e.key];
-        // Aggregate non-breaking pierce for this element (max across sources, or sum — using max is more accurate for D2)
         const srcPierces = state.sources.filter(s => s.type === e.key).map(s => s.pierce);
+        const uniquePierces = [...new Set(srcPierces)];
         const maxPierce = srcPierces.length ? Math.max(...srcPierces) : 0;
         const resAfter = calcRes(res, maxPierce, totalBreak);
         const dps = Math.round(elemDps(e.key, mon));
         const active = !hasSources() || hasElemSources(e.key);
         const hasBreakOrPierce = totalBreak > 0 || maxPierce > 0;
+        // Show note when sources have different pierce values (displayed res uses max pierce)
+        const pierceVaries = uniquePierces.length > 1;
 
         html += `<td class="res-cell ${e.cls} ${active ? '' : 'inactive'}">
           <div class="res-row">
             <span class="${res > 99 ? 'immune' : ''}">${res}</span>
-            ${hasBreakOrPierce ? `<span class="arrow"> &rarr; </span><span class="${resAfter > 99 ? 'immune' : ''}">${resAfter}</span>` : ''}
+            ${hasBreakOrPierce ? `<span class="arrow"> &rarr; </span><span class="${resAfter > 99 ? 'immune' : ''}" ${pierceVaries ? 'title="Effective resistance varies per source (each uses its own pierce). Showing best case."' : ''}>${resAfter}${pierceVaries ? '*' : ''}</span>` : ''}
           </div>
           <div class="dps-val">${dps.toLocaleString()}/s</div>
         </td>`;
@@ -554,7 +562,7 @@ function render() {
 
       html += `<td class="sum-cell"><span class="sum-dmg">${dps.toLocaleString()}/s</span></td>`;
       html += `<td class="sum-cell"><div class="hp-bar-wrap">
-        <div class="hp-bar ${dead ? 'hp-bar-dead' : ''}">
+        <div class="hp-bar ${dead ? 'hp-bar-dead' : ''}" title="HP remaining after 1 second of damage">
           <div class="hp-bar-fill" style="width:${remaining}%"></div>
           <div class="hp-bar-text">${dead ? '\u2620' : Math.round(remaining) + '%'}</div>
         </div>

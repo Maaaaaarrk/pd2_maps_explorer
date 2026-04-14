@@ -243,12 +243,10 @@
 <script src="data/monstats.js"></script>
 <script src="data/tiers.js"></script>
 <script src="data/monlvl.js"></script>
+<script src="data/shared.js"></script>
 <script>
-const CAMPAIGN_MAX_ID = 136;
+// CAMPAIGN_MAX_ID, DISABLED_LEVELS, realHP loaded from data/shared.js
 const ACT_NAMES = { 0: "Act 1", 1: "Act 2", 2: "Act 3", 3: "Act 4", 4: "Act 5" };
-
-// Auto-populate the Bosses tier with all endgame levels not in map tiers
-const DISABLED_LEVELS = new Set([152, 153, 157, 159, 165, 166, 172, 182, 184, 187, 194, 196]);
 (function() {
   const mapIds = new Set();
   tierData.forEach(t => {
@@ -505,7 +503,6 @@ function resStyle(val, dmgType) {
 }
 
 function resDisplay(val) {
-  if (val >= 100) return `${val}%`;
   return `${val}%`;
 }
 
@@ -541,12 +538,6 @@ function capitalize(s) {
 function maxResCell(val, dmgType) {
   const r = resStyle(val, dmgType);
   return `<th class="${r.cls}"${r.style}>${resDisplay(val)}</th>`;
-}
-
-function realHP(baseHP, areaLvl) {
-  const entry = monLvlData[String(areaLvl)];
-  if (!entry) return baseHP;
-  return Math.floor(baseHP * entry.lhp_H / 100);
 }
 
 function buildMonsterTable(monsters, areaLvl) {

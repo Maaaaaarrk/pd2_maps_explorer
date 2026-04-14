@@ -234,6 +234,7 @@
 <script src="data/monstats.js"></script>
 <script src="data/tiers.js"></script>
 <script src="data/monlvl.js"></script>
+<script src="data/shared.js"></script>
 <script>
 const FRAMES_PER_SEC = 25;
 const ELEM_TYPES = [
@@ -257,15 +258,7 @@ ELEM_TYPES.forEach(e => state.breaking[e.key] = 0);
 
 let sourceIdCounter = 0;
 
-// Map/monster data
-const CAMPAIGN_MAX_ID = 136;
-const DISABLED_LEVELS = new Set([152, 153, 157, 159, 165, 166, 172, 182, 184, 187, 194, 196]);
-
-function realHP(baseHP, areaLevel) {
-  const entry = monLvlData[String(areaLevel)];
-  if (!entry) return baseHP;
-  return Math.floor(baseHP * entry.lhp_H / 100);
-}
+// Map/monster data (CAMPAIGN_MAX_ID, DISABLED_LEVELS, realHP loaded from data/shared.js)
 
 function buildMapData() {
   const maps = [];
@@ -306,16 +299,7 @@ function calcDmgHit(dmg, res, pierceNon, pierceBreak) {
   return r < 0 ? dmg * (1 + Math.abs(r) / 100) : dmg * (1 - r / 100);
 }
 
-// Crushing Blow damage per hit for a source against a monster
-function cbDmgPerHit(src, monMaxHp) {
-  if (!src.cbChance || src.cbChance <= 0) return 0;
-  const cbDivisor = 7 + (state.playerCount - 1) * 1.4;
-  const rangedMult = src.ranged ? 1.5 : 1;
-  const baseCbDmg = monMaxHp / (cbDivisor * rangedMult);
-  return baseCbDmg * (Math.min(src.cbChance, 100) / 100);
-}
-
-// DPS for a single source against a monster
+// DPS for a single source against a monster (excluding CB)
 function sourceDps(src, monster) {
   const elem = ELEM_MAP[src.type];
   if (!elem) return 0;
@@ -329,31 +313,87 @@ function sourceDps(src, monster) {
   return dmgPerHit * hitsPerSec;
 }
 
-// Crushing blow DPS for a source (physical damage, uses phys res)
-function sourceCbDps(src, monster) {
-  if (!src.cbChance || src.fpa <= 0) return 0;
+// Simulate 1 second of combat to calculate effective total DPS including CB decay.
+// CB in PD2 uses flat 1/8 of *current* HP (no ranged penalty, no player-count scaling).
+// Each hit reduces current HP, so subsequent CB hits do less damage.
+function simulateOneSec(monster) {
   const maxHp = monsterMaxHp(monster);
-  const rawCb = cbDmgPerHit(src, maxHp);
-  // CB deals physical damage, apply physical resistance
   const physRes = monster[ELEM_MAP["phys"].resKey];
-  const cbAfterRes = calcDmgHit(rawCb, physRes, 0, state.breaking["phys"]);
-  const hitsPerSec = FRAMES_PER_SEC / src.fpa;
-  return cbAfterRes * hitsPerSec;
+
+  // Gather all hit events in 1 second (25 frames), sorted by frame
+  const hitEvents = [];
+  state.sources.forEach(src => {
+    if (src.type === "poison" || src.fpa <= 0 || src.dmg <= 0) return;
+    const elem = ELEM_MAP[src.type];
+    if (!elem) return;
+    const res = monster[elem.resKey];
+    const dmgPerHit = calcDmgHit(src.dmg, res, src.pierce, state.breaking[src.type]);
+    const cbChance = Math.min(src.cbChance || 0, 100) / 100;
+    for (let frame = 0; frame < FRAMES_PER_SEC; frame += src.fpa) {
+      hitEvents.push({ frame, dmgPerHit, cbChance });
+    }
+  });
+
+  // Sort by frame so CB decay applies in order
+  hitEvents.sort((a, b) => a.frame - b.frame);
+
+  let currentHp = maxHp;
+  let totalDmg = 0;
+  let totalCbDmg = 0;
+
+  hitEvents.forEach(ev => {
+    // Regular damage
+    totalDmg += ev.dmgPerHit;
+    currentHp -= ev.dmgPerHit;
+
+    // CB: 1/8 of current HP (PD2 flat divisor), applied as physical damage
+    if (ev.cbChance > 0 && currentHp > 0) {
+      const rawCb = (currentHp / 8) * ev.cbChance;
+      const cbAfterRes = calcDmgHit(rawCb, physRes, 0, state.breaking["phys"]);
+      totalCbDmg += cbAfterRes;
+      currentHp -= cbAfterRes;
+    }
+
+    if (currentHp < 0) currentHp = 0;
+  });
+
+  // Add poison DPS (only strongest source applies per Finding 3)
+  const poisonSources = state.sources.filter(s => s.type === "poison" && s.dmg > 0);
+  let poisonDps = 0;
+  if (poisonSources.length > 0) {
+    // Only strongest poison source applies (D2 mechanic)
+    poisonDps = Math.max(...poisonSources.map(src => {
+      const res = monster[ELEM_MAP["poison"].resKey];
+      return calcDmgHit(src.dmg, res, src.pierce, state.breaking["poison"]);
+    }));
+  }
+
+  return { totalDmg, totalCbDmg, poisonDps, effectiveDps: totalDmg + totalCbDmg + poisonDps };
 }
 
-// Total DPS across all sources
+// Total DPS across all sources (uses simulation for CB decay)
 function totalDps(monster) {
-  return state.sources.reduce((sum, src) => sum + sourceDps(src, monster) + sourceCbDps(src, monster), 0);
+  return simulateOneSec(monster).effectiveDps;
 }
 
 // Per-element total DPS (summing all sources of that element)
 function elemDps(elemKey, monster) {
+  if (elemKey === "poison") {
+    // Only strongest poison source (Finding 3)
+    const poisonSources = state.sources.filter(s => s.type === "poison" && s.dmg > 0);
+    if (poisonSources.length === 0) return 0;
+    const res = monster[ELEM_MAP["poison"].resKey];
+    return Math.max(...poisonSources.map(src =>
+      calcDmgHit(src.dmg, res, src.pierce, state.breaking["poison"])
+    ));
+  }
+
   let dps = state.sources
     .filter(s => s.type === elemKey)
     .reduce((sum, src) => sum + sourceDps(src, monster), 0);
   // CB damage is always physical, add it to phys column
   if (elemKey === "phys") {
-    dps += state.sources.reduce((sum, src) => sum + sourceCbDps(src, monster), 0);
+    dps += simulateOneSec(monster).totalCbDmg;
   }
   return dps;
 }
@@ -389,8 +429,8 @@ function buildBreakInputs() {
 }
 
 // ---- UI: Damage Sources ----
-function addSource(type, dmg, pierce, fpa, cbChance, ranged) {
-  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10, cbChance: cbChance || 0, ranged: ranged || false };
+function addSource(type, dmg, pierce, fpa, cbChance) {
+  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10, cbChance: cbChance || 0 };
   state.sources.push(src);
   renderSourceCard(src);
   render(); updateHash();
@@ -426,7 +466,6 @@ function renderSourceCard(src) {
       <tr><th>Pierce %</th><td><input type="text" data-src="${src.id}" data-field="pierce" value="${src.pierce}" inputmode="numeric"></td></tr>
       <tr><th>FPA</th><td><input type="text" data-src="${src.id}" data-field="fpa" value="${src.fpa}" inputmode="numeric" class="${isPoison ? 'disabled-input' : ''}"></td></tr>
       <tr><th>CB %</th><td><input type="text" data-src="${src.id}" data-field="cbChance" value="${src.cbChance}" inputmode="numeric" title="Crushing Blow chance %"></td></tr>
-      <tr><th>Ranged</th><td><label><input type="checkbox" data-src="${src.id}" data-field="ranged" ${src.ranged ? 'checked' : ''}> Ranged attack</label></td></tr>
     </tbody></table>
   `;
   container.appendChild(div);
@@ -445,8 +484,6 @@ function renderSourceCard(src) {
         const fpaInput = div.querySelector('[data-field="fpa"]');
         if (inp.value === "poison") { fpaInput.classList.add("disabled-input"); }
         else { fpaInput.classList.remove("disabled-input"); }
-      } else if (field === "ranged") {
-        s.ranged = inp.checked;
       } else {
         s[field] = parseInt(inp.value) || 0;
       }
@@ -527,18 +564,20 @@ function render() {
       ELEM_TYPES.forEach(e => {
         const res = mon[e.resKey];
         const totalBreak = state.breaking[e.key];
-        // Aggregate non-breaking pierce for this element (max across sources, or sum — using max is more accurate for D2)
         const srcPierces = state.sources.filter(s => s.type === e.key).map(s => s.pierce);
+        const uniquePierces = [...new Set(srcPierces)];
         const maxPierce = srcPierces.length ? Math.max(...srcPierces) : 0;
         const resAfter = calcRes(res, maxPierce, totalBreak);
         const dps = Math.round(elemDps(e.key, mon));
         const active = !hasSources() || hasElemSources(e.key);
         const hasBreakOrPierce = totalBreak > 0 || maxPierce > 0;
+        // Show note when sources have different pierce values (displayed res uses max pierce)
+        const pierceVaries = uniquePierces.length > 1;
 
         html += `<td class="res-cell ${e.cls} ${active ? '' : 'inactive'}">
           <div class="res-row">
             <span class="${res > 99 ? 'immune' : ''}">${res}</span>
-            ${hasBreakOrPierce ? `<span class="arrow"> &rarr; </span><span class="${resAfter > 99 ? 'immune' : ''}">${resAfter}</span>` : ''}
+            ${hasBreakOrPierce ? `<span class="arrow"> &rarr; </span><span class="${resAfter > 99 ? 'immune' : ''}" ${pierceVaries ? 'title="Effective resistance varies per source (each uses its own pierce). Showing best case."' : ''}>${resAfter}${pierceVaries ? '*' : ''}</span>` : ''}
           </div>
           <div class="dps-val">${dps.toLocaleString()}/s</div>
         </td>`;
@@ -554,7 +593,7 @@ function render() {
 
       html += `<td class="sum-cell"><span class="sum-dmg">${dps.toLocaleString()}/s</span></td>`;
       html += `<td class="sum-cell"><div class="hp-bar-wrap">
-        <div class="hp-bar ${dead ? 'hp-bar-dead' : ''}">
+        <div class="hp-bar ${dead ? 'hp-bar-dead' : ''}" title="HP remaining after 1 second of damage">
           <div class="hp-bar-fill" style="width:${remaining}%"></div>
           <div class="hp-bar-text">${dead ? '\u2620' : Math.round(remaining) + '%'}</div>
         </div>
@@ -574,7 +613,7 @@ function updateHash() {
   ELEM_TYPES.forEach(e => { if (state.breaking[e.key]) p["b_" + e.key] = state.breaking[e.key]; });
   if (state.sources.length) {
     // Encode sources as: type.dmg.pierce.fpa|type.dmg.pierce.fpa|...
-    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}.${s.cbChance || 0}.${s.ranged ? 1 : 0}`).join("|");
+    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}.${s.cbChance || 0}`).join("|");
   }
   if (state.playerCount > 1) p.pc = state.playerCount;
   if (state.fortification) p.fort = 1;
@@ -604,7 +643,7 @@ function restoreFromHash() {
       state.sources.push({
         id: sourceIdCounter++, type,
         dmg: parseInt(dmg) || 0, pierce: parseInt(pierce) || 0, fpa: parseInt(fpa) || 10,
-        cbChance: parseInt(parts[4]) || 0, ranged: parts[5] === "1",
+        cbChance: parseInt(parts[4]) || 0,
       });
     });
   }

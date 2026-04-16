@@ -301,11 +301,11 @@ function calcDmgHit(dmg, res, pierceNon, pierceBreak) {
 
 // Crushing Blow damage per hit for a source against a monster (Season 13 mechanics).
 // CB deals damage based on CURRENT HP (decays as monster loses life).
-// Divisor scales from 7 (players 1) to 16.8 (players 8).
+// Divisor scales from 8 (players 1) to 17.8 (players 8).
 // Ranged attacks apply a 1.5x multiplier to the divisor.
 function cbDmgPerHit(src, currentHp) {
   if (!src.cbChance || src.cbChance <= 0) return 0;
-  const cbDivisor = 7 + (state.playerCount - 1) * 1.4;
+  const cbDivisor = 8 + (state.playerCount - 1) * 1.4;
   const rangedMult = src.ranged ? 1.5 : 1;
   const baseCbDmg = currentHp / (cbDivisor * rangedMult);
   return baseCbDmg * (Math.min(src.cbChance, 100) / 100);

@@ -76,6 +76,11 @@ LEVEL_NAME_OVERRIDES = {
     189: "Lucion Vault",
     194: "Imperial Boss Arena",
     196: "Nemyr Monastery",
+    197: "Djinns Domain",
+    198: "Djinns Domain (Red)",
+    199: "Djinns Domain (Boss)",
+    200: "Na-Krul's Abyss",
+    201: "Kyovoshad",
 }
 
 def convert_levels():

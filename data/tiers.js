@@ -3,13 +3,13 @@ const tierData = [
     "tier": "Tier 1",
     "zoneLevel": 87,
     "maps": [
-      { "id": 139, "name": "Arreat Battlefield" },
+      { "id": 146, "name": "Ancestral Trial" },
       { "id": 155, "name": "Fall of Caldeum" },
-      { "id": 193, "name": "Halls of Torture" },
-      { "id": 142, "name": "Horazon's Memory" },
-      { "id": 170, "name": "Royal Crypts" },
-      { "id": 141, "name": "Sewers of Harrogath" },
+      { "id": 158, "name": "Lost Temple" },
+      { "id": 145, "name": "Phlegethon" },
+      { "id": 143, "name": "Ruins of Viz-Jun" },
       { "id": 169, "name": "Shadows of Westmarch" },
+      { "id": 151, "name": "Tomb of Zoltun Kulle" },
       { "id": 148, "name": "Torajan Jungle" }
     ]
   },
@@ -17,30 +17,30 @@ const tierData = [
     "tier": "Tier 2",
     "zoneLevel": 88,
     "maps": [
-      { "id": 146, "name": "Ancestral Trial" },
-      { "id": 149, "name": "Bastion Keep" },
-      { "id": 191, "name": "Demon Road" },
-      { "id": 158, "name": "Lost Temple" },
-      { "id": 144, "name": "River of Blood" },
-      { "id": 143, "name": "Ruins of Viz-Jun" },
-      { "id": 190, "name": "Skovos Stronghold" },
-      { "id": 151, "name": "Tomb of Zoltun Kulle" }
+      { "id": 175, "name": "Ashen Plains" },
+      { "id": 160, "name": "Canyon of Sescheron" },
+      { "id": 193, "name": "Halls of Torture" },
+      { "id": 142, "name": "Horazon's Memory" },
+      { "id": 156, "name": "Pandemonium Citadel" },
+      { "id": 174, "name": "Ruined Cistern" },
+      { "id": 167, "name": "Sanatorium" },
+      { "id": 141, "name": "Sewers of Harrogath" },
+      { "id": 150, "name": "Throne of Insanity" }
     ]
   },
   {
     "tier": "Tier 3",
     "zoneLevel": 89,
     "maps": [
-      { "id": 175, "name": "Ashen Plains" },
+      { "id": 139, "name": "Arreat Battlefield" },
+      { "id": 149, "name": "Bastion Keep" },
       { "id": 154, "name": "Blood Moon" },
-      { "id": 160, "name": "Canyon of Sescheron" },
+      { "id": 191, "name": "Demon Road" },
       { "id": 147, "name": "Kehjistan Marketplace" },
       { "id": 201, "name": "Kyovoshad" },
-      { "id": 156, "name": "Pandemonium Citadel" },
-      { "id": 145, "name": "Phlegethon" },
-      { "id": 174, "name": "Ruined Cistern" },
-      { "id": 167, "name": "Sanatorium" },
-      { "id": 150, "name": "Throne of Insanity" }
+      { "id": 144, "name": "River of Blood" },
+      { "id": 170, "name": "Royal Crypts" },
+      { "id": 190, "name": "Skovos Stronghold" }
     ]
   },
   {

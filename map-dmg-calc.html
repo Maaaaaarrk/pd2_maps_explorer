@@ -312,20 +312,16 @@ function cbDmgPerHit(src, currentHp) {
 }
 
 // Static Field damage per hit for a source. Static is lightning damage that
-// removes a percentage of the target's CURRENT HP, but PD2 caps it at a 75%
-// max-HP floor: Static only does work on the portion of current HP above
-// 0.75 * maxHP. Once the target is at/below 75% HP, Static deals 0.
-// src.dmg is interpreted as the Static % (e.g. 25 for base Static Field).
+// PD2 caps at a 75% max-HP activation floor: one cast removes HP down to the
+// floor (currentHP - 0.75*maxHP), and once the target is at/below 75% HP
+// Static deals 0. The per-cast amount is fully determined by target HP — no
+// user-supplied percent (Static Field in PD2 is deterministic given the floor).
 // Damage is NOT mitigated by this helper; callers route it through lightning
 // resistance + pierce (lightning pipeline) separately.
 function staticRawDmgPerHit(src, currentHp, maxHp) {
-  if (!src.isStatic || src.dmg <= 0) return 0;
+  if (!src.isStatic) return 0;
   const floor = 0.75 * maxHp;
-  if (currentHp <= floor) return 0;
-  const pct = Math.min(src.dmg, 100) / 100;
-  const desired = currentHp * pct;
-  const available = currentHp - floor;
-  return Math.min(desired, available);
+  return Math.max(0, currentHp - floor);
 }
 
 // DPS for a single source against a monster (excluding CB).
@@ -357,7 +353,7 @@ function sourceDps(src, monster, currentHp) {
 
 // Has any Static-Field-flagged lightning source?
 function hasStaticSources() {
-  return state.sources.some(s => s.isStatic && s.type === "light" && s.dmg > 0 && s.fpa > 0);
+  return state.sources.some(s => s.isStatic && s.type === "light" && s.fpa > 0);
 }
 
 // Crushing blow DPS for a source (physical damage, uses phys res).
@@ -408,11 +404,12 @@ function monsterMaxHp(mon) {
 }
 
 function hasSources() {
-  return state.sources.some(s => s.dmg > 0 || s.cbChance > 0);
+  return state.sources.some(s => s.dmg > 0 || s.cbChance > 0 || s.isStatic);
 }
 
 function hasElemSources(elemKey) {
   if (elemKey === "phys" && state.sources.some(s => s.cbChance > 0)) return true;
+  if (elemKey === "light" && state.sources.some(s => s.isStatic && s.type === "light")) return true;
   return state.sources.some(s => s.type === elemKey && s.dmg > 0);
 }
 
@@ -458,7 +455,7 @@ function simulateTTK(monster) {
         const rawCb = cbDmgPerHit(src, Math.max(hp, 0));
         hp -= rawCb * cbResMult;
       }
-      if (src.isStatic && src.type === "light" && src.dmg > 0) {
+      if (src.isStatic && src.type === "light") {
         const rawStatic = staticRawDmgPerHit(src, Math.max(hp, 0), maxHp);
         const lightRes = monster[ELEM_MAP["light"].resKey];
         const staticAfterRes = calcDmgHit(rawStatic, lightRes, src.pierce, state.breaking["light"]);
@@ -518,8 +515,9 @@ function renderSourceCard(src) {
   div.id = "src-" + src.id;
 
   const isPoison = src.type === "poison";
-  const dmgLabel = src.isStatic ? "Static %" : "Damage";
-  const dmgTitle = src.isStatic ? "Percent of current HP removed per cast (e.g. 25 for base Static Field)" : "";
+  const dmgDisabled = src.isStatic;
+  const dmgValue = src.isStatic ? 0 : src.dmg;
+  const dmgTitle = src.isStatic ? "Static Field damage is derived from target HP (max(0, currentHP - 0.75*maxHP)); this field is ignored while Static is on." : "";
   div.innerHTML = `
     <div class="dmg-source-header">
       <span>#${state.sources.indexOf(src) + 1}</span>
@@ -532,12 +530,12 @@ function renderSourceCard(src) {
           ${ELEM_TYPES.map(e => `<option value="${e.key}" ${e.key === src.type ? 'selected' : ''}>${e.label}</option>`).join("")}
         </select></td>
       </tr>
-      <tr><th data-label="dmg">${dmgLabel}</th><td><input type="text" data-src="${src.id}" data-field="dmg" value="${src.dmg}" inputmode="numeric" title="${dmgTitle}"></td></tr>
+      <tr><th>Damage</th><td><input type="text" data-src="${src.id}" data-field="dmg" value="${dmgValue}" inputmode="numeric" title="${dmgTitle}" class="${dmgDisabled ? 'disabled-input' : ''}" ${dmgDisabled ? 'disabled' : ''}></td></tr>
       <tr><th>Pierce %</th><td><input type="text" data-src="${src.id}" data-field="pierce" value="${src.pierce}" inputmode="numeric"></td></tr>
       <tr><th>FPA</th><td><input type="text" data-src="${src.id}" data-field="fpa" value="${src.fpa}" inputmode="numeric" class="${isPoison ? 'disabled-input' : ''}"></td></tr>
       <tr><th>CB %</th><td><input type="text" data-src="${src.id}" data-field="cbChance" value="${src.cbChance}" inputmode="numeric" title="Crushing Blow chance %"></td></tr>
       <tr><th>Ranged</th><td><label><input type="checkbox" data-src="${src.id}" data-field="ranged" ${src.ranged ? 'checked' : ''}> Ranged attack</label></td></tr>
-      <tr><th>Static</th><td><label><input type="checkbox" data-src="${src.id}" data-field="isStatic" ${src.isStatic ? 'checked' : ''} title="Static Field: damage value is treated as % of current HP, routed through lightning res+pierce, capped at 75% max-HP floor. Forces type = Lightning."> Static Field (lightning, 75% floor)</label></td></tr>
+      <tr><th>Static</th><td><label><input type="checkbox" data-src="${src.id}" data-field="isStatic" ${src.isStatic ? 'checked' : ''} title="Static Field: lightning damage derived from target HP (75% activation floor). Forces type = Lightning; Damage field is ignored."> Static Field (lightning, 75% floor)</label></td></tr>
     </tbody></table>
   `;
   container.appendChild(div);
@@ -565,9 +563,9 @@ function renderSourceCard(src) {
         s.ranged = inp.checked;
       } else if (field === "isStatic") {
         s.isStatic = inp.checked;
-        // Static forces type = lightning
-        if (s.isStatic) s.type = "light";
-        // Re-render the card so the Damage label and type selector reflect the change
+        // Static forces type = lightning and ignores the Damage field (zero it)
+        if (s.isStatic) { s.type = "light"; s.dmg = 0; }
+        // Re-render the card so the Damage input's disabled state / type selector reflect the change
         rebuildAllSourceCards();
       } else {
         s[field] = parseInt(inp.value) || 0;
@@ -725,11 +723,14 @@ function restoreFromHash() {
     params.src.split("|").forEach(s => {
       const parts = s.split(".");
       const [type, dmg, pierce, fpa] = parts;
+      const isStatic = parts[6] === "1";
       state.sources.push({
         id: sourceIdCounter++, type,
-        dmg: parseInt(dmg) || 0, pierce: parseInt(pierce) || 0, fpa: parseInt(fpa) || 10,
+        // Static sources ignore any stored Damage value (legacy PR #13 "Static %") — derived from HP now.
+        dmg: isStatic ? 0 : (parseInt(dmg) || 0),
+        pierce: parseInt(pierce) || 0, fpa: parseInt(fpa) || 10,
         cbChance: parseInt(parts[4]) || 0, ranged: parts[5] === "1",
-        isStatic: parts[6] === "1",
+        isStatic,
       });
     });
   }

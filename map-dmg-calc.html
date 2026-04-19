@@ -311,10 +311,40 @@ function cbDmgPerHit(src, currentHp) {
   return baseCbDmg * (Math.min(src.cbChance, 100) / 100);
 }
 
-// DPS for a single source against a monster (excluding CB)
-function sourceDps(src, monster) {
+// Static Field damage per hit for a source. Static is lightning damage that
+// removes a percentage of the target's CURRENT HP, but PD2 caps it at a 75%
+// max-HP floor: Static only does work on the portion of current HP above
+// 0.75 * maxHP. Once the target is at/below 75% HP, Static deals 0.
+// src.dmg is interpreted as the Static % (e.g. 25 for base Static Field).
+// Damage is NOT mitigated by this helper; callers route it through lightning
+// resistance + pierce (lightning pipeline) separately.
+function staticRawDmgPerHit(src, currentHp, maxHp) {
+  if (!src.isStatic || src.dmg <= 0) return 0;
+  const floor = 0.75 * maxHp;
+  if (currentHp <= floor) return 0;
+  const pct = Math.min(src.dmg, 100) / 100;
+  const desired = currentHp * pct;
+  const available = currentHp - floor;
+  return Math.min(desired, available);
+}
+
+// DPS for a single source against a monster (excluding CB).
+// When currentHp is provided, Static sources compute damage against that HP;
+// otherwise they use the monster's max HP (initial-DPS display / flat-DPS
+// baseline in the simulation loop, which then handles decay per-frame).
+function sourceDps(src, monster, currentHp) {
   const elem = ELEM_MAP[src.type];
   if (!elem) return 0;
+  // Static Field: always lightning damage, based on current HP, capped by 75% floor.
+  if (src.isStatic) {
+    if (src.type !== "light") return 0; // Static is lightning-only
+    const hp = currentHp !== undefined ? currentHp : monsterMaxHp(monster);
+    const rawStatic = staticRawDmgPerHit(src, hp, monsterMaxHp(monster));
+    const lightRes = monster[ELEM_MAP["light"].resKey];
+    const staticAfterRes = calcDmgHit(rawStatic, lightRes, src.pierce, state.breaking["light"]);
+    const hitsPerSec = src.fpa > 0 ? FRAMES_PER_SEC / src.fpa : 0;
+    return staticAfterRes * hitsPerSec;
+  }
   const res = monster[elem.resKey];
   const dmgPerHit = calcDmgHit(src.dmg, res, src.pierce, state.breaking[src.type]);
   if (src.type === "poison") {
@@ -323,6 +353,11 @@ function sourceDps(src, monster) {
   }
   const hitsPerSec = src.fpa > 0 ? FRAMES_PER_SEC / src.fpa : 0;
   return dmgPerHit * hitsPerSec;
+}
+
+// Has any Static-Field-flagged lightning source?
+function hasStaticSources() {
+  return state.sources.some(s => s.isStatic && s.type === "light" && s.dmg > 0 && s.fpa > 0);
 }
 
 // Crushing blow DPS for a source (physical damage, uses phys res).
@@ -387,17 +422,19 @@ function hasElemSources(elemKey) {
 function simulateTTK(monster) {
   const maxHp = monsterMaxHp(monster);
   let hp = maxHp;
-  // Flat DPS from non-CB sources (constant over time)
-  const flatDps = state.sources.reduce((sum, src) => sum + sourceDps(src, monster), 0);
-  // Check if there are any CB sources
+  // Flat DPS from non-CB, non-Static sources (constant over time).
+  // Static DPS is HP-based and decays; it is applied per-frame in the sim loop below.
+  const flatDps = state.sources.reduce((sum, src) => src.isStatic ? sum : sum + sourceDps(src, monster), 0);
+  // Check if there are any CB or Static sources that need frame-by-frame simulation
   const hasCb = state.sources.some(s => s.cbChance > 0 && s.fpa > 0);
-  if (!hasCb) {
-    // No CB: simple calculation
+  const hasStatic = hasStaticSources();
+  if (!hasCb && !hasStatic) {
+    // No CB, no Static: simple calculation
     const dps = flatDps;
     if (dps <= 0) return { ttk: Infinity, hpAfter1s: maxHp, initialDps: 0 };
     return { ttk: maxHp / dps, hpAfter1s: Math.max(maxHp - dps, 0), initialDps: dps };
   }
-  // Simulate frame-by-frame for CB decay
+  // Simulate frame-by-frame for CB and/or Static decay
   const flatDmgPerFrame = flatDps / FRAMES_PER_SEC;
   const physRes = monster[ELEM_MAP["phys"].resKey];
   const physResAfter = calcRes(physRes, 0, state.breaking["phys"]);
@@ -405,26 +442,43 @@ function simulateTTK(monster) {
   let frame = 0;
   const maxFrames = FRAMES_PER_SEC * 600; // cap at 600 seconds
   let hpAfter1s = null;
+  const staticFloor = 0.75 * maxHp;
+  // Early-exit shortcut: if the only damage source is Static and HP has stabilised
+  // at/below the 75% floor, no further progress is possible — cap ttk at Infinity.
+  const staticOnly = !hasCb && hasStatic && flatDps === 0;
   while (hp > 0.5 && frame < maxFrames) {
     // Apply flat damage this frame
     hp -= flatDmgPerFrame;
-    // Apply CB hits this frame
+    // Apply CB and Static hits this frame (each is per-source, based on current HP)
     for (const src of state.sources) {
-      if (!src.cbChance || src.cbChance <= 0 || src.fpa <= 0) continue;
-      // Check if this source hits on this frame
-      if (frame % src.fpa === 0) {
+      if (src.fpa <= 0) continue;
+      const hits = frame % src.fpa === 0;
+      if (!hits) continue;
+      if (src.cbChance && src.cbChance > 0) {
         const rawCb = cbDmgPerHit(src, Math.max(hp, 0));
         hp -= rawCb * cbResMult;
+      }
+      if (src.isStatic && src.type === "light" && src.dmg > 0) {
+        const rawStatic = staticRawDmgPerHit(src, Math.max(hp, 0), maxHp);
+        const lightRes = monster[ELEM_MAP["light"].resKey];
+        const staticAfterRes = calcDmgHit(rawStatic, lightRes, src.pierce, state.breaking["light"]);
+        hp -= staticAfterRes;
       }
     }
     frame++;
     if (frame === FRAMES_PER_SEC) hpAfter1s = hp;
+    // Static-only short-circuit: once HP has settled at/below the floor, we'll never kill.
+    if (staticOnly && hp <= staticFloor + 0.5) {
+      if (hpAfter1s === null) hpAfter1s = hp;
+      break;
+    }
   }
   if (hpAfter1s === null) hpAfter1s = hp;
   const ttk = hp <= 0 ? frame / FRAMES_PER_SEC : Infinity;
-  // Initial DPS includes CB at full HP for display
+  // Initial DPS includes CB + Static at full HP for display
   const initialCbDps = state.sources.reduce((sum, src) => sum + sourceCbDps(src, monster, maxHp), 0);
-  return { ttk, hpAfter1s: Math.max(hpAfter1s, 0), initialDps: flatDps + initialCbDps };
+  const initialStaticDps = state.sources.reduce((sum, src) => src.isStatic ? sum + sourceDps(src, monster, maxHp) : sum, 0);
+  return { ttk, hpAfter1s: Math.max(hpAfter1s, 0), initialDps: flatDps + initialCbDps + initialStaticDps };
 }
 
 // ---- UI: Breaking Pierce ----
@@ -443,8 +497,8 @@ function buildBreakInputs() {
 }
 
 // ---- UI: Damage Sources ----
-function addSource(type, dmg, pierce, fpa, cbChance, ranged) {
-  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10, cbChance: cbChance || 0, ranged: ranged || false };
+function addSource(type, dmg, pierce, fpa, cbChance, ranged, isStatic) {
+  const src = { id: sourceIdCounter++, type: type || "phys", dmg: dmg || 0, pierce: pierce || 0, fpa: fpa || 10, cbChance: cbChance || 0, ranged: ranged || false, isStatic: isStatic || false };
   state.sources.push(src);
   renderSourceCard(src);
   render(); updateHash();
@@ -464,6 +518,8 @@ function renderSourceCard(src) {
   div.id = "src-" + src.id;
 
   const isPoison = src.type === "poison";
+  const dmgLabel = src.isStatic ? "Static %" : "Damage";
+  const dmgTitle = src.isStatic ? "Percent of current HP removed per cast (e.g. 25 for base Static Field)" : "";
   div.innerHTML = `
     <div class="dmg-source-header">
       <span>#${state.sources.indexOf(src) + 1}</span>
@@ -476,11 +532,12 @@ function renderSourceCard(src) {
           ${ELEM_TYPES.map(e => `<option value="${e.key}" ${e.key === src.type ? 'selected' : ''}>${e.label}</option>`).join("")}
         </select></td>
       </tr>
-      <tr><th>Damage</th><td><input type="text" data-src="${src.id}" data-field="dmg" value="${src.dmg}" inputmode="numeric"></td></tr>
+      <tr><th data-label="dmg">${dmgLabel}</th><td><input type="text" data-src="${src.id}" data-field="dmg" value="${src.dmg}" inputmode="numeric" title="${dmgTitle}"></td></tr>
       <tr><th>Pierce %</th><td><input type="text" data-src="${src.id}" data-field="pierce" value="${src.pierce}" inputmode="numeric"></td></tr>
       <tr><th>FPA</th><td><input type="text" data-src="${src.id}" data-field="fpa" value="${src.fpa}" inputmode="numeric" class="${isPoison ? 'disabled-input' : ''}"></td></tr>
       <tr><th>CB %</th><td><input type="text" data-src="${src.id}" data-field="cbChance" value="${src.cbChance}" inputmode="numeric" title="Crushing Blow chance %"></td></tr>
       <tr><th>Ranged</th><td><label><input type="checkbox" data-src="${src.id}" data-field="ranged" ${src.ranged ? 'checked' : ''}> Ranged attack</label></td></tr>
+      <tr><th>Static</th><td><label><input type="checkbox" data-src="${src.id}" data-field="isStatic" ${src.isStatic ? 'checked' : ''} title="Static Field: damage value is treated as % of current HP, routed through lightning res+pierce, capped at 75% max-HP floor. Forces type = Lightning."> Static Field (lightning, 75% floor)</label></td></tr>
     </tbody></table>
   `;
   container.appendChild(div);
@@ -499,8 +556,19 @@ function renderSourceCard(src) {
         const fpaInput = div.querySelector('[data-field="fpa"]');
         if (inp.value === "poison") { fpaInput.classList.add("disabled-input"); }
         else { fpaInput.classList.remove("disabled-input"); }
+        // Static is lightning-only — turn it off if type is changed away from lightning
+        if (s.isStatic && s.type !== "light") {
+          s.isStatic = false;
+          rebuildAllSourceCards();
+        }
       } else if (field === "ranged") {
         s.ranged = inp.checked;
+      } else if (field === "isStatic") {
+        s.isStatic = inp.checked;
+        // Static forces type = lightning
+        if (s.isStatic) s.type = "light";
+        // Re-render the card so the Damage label and type selector reflect the change
+        rebuildAllSourceCards();
       } else {
         s[field] = parseInt(inp.value) || 0;
       }
@@ -629,8 +697,8 @@ function updateHash() {
   const p = {};
   ELEM_TYPES.forEach(e => { if (state.breaking[e.key]) p["b_" + e.key] = state.breaking[e.key]; });
   if (state.sources.length) {
-    // Encode sources as: type.dmg.pierce.fpa|type.dmg.pierce.fpa|...
-    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}.${s.cbChance || 0}.${s.ranged ? 1 : 0}`).join("|");
+    // Encode sources as: type.dmg.pierce.fpa.cb.ranged.isStatic|...
+    p.src = state.sources.map(s => `${s.type}.${s.dmg}.${s.pierce}.${s.fpa}.${s.cbChance || 0}.${s.ranged ? 1 : 0}.${s.isStatic ? 1 : 0}`).join("|");
   }
   if (state.playerCount > 1) p.pc = state.playerCount;
   if (state.fortification) p.fort = 1;
@@ -661,6 +729,7 @@ function restoreFromHash() {
         id: sourceIdCounter++, type,
         dmg: parseInt(dmg) || 0, pierce: parseInt(pierce) || 0, fpa: parseInt(fpa) || 10,
         cbChance: parseInt(parts[4]) || 0, ranged: parts[5] === "1",
+        isStatic: parts[6] === "1",
       });
     });
   }

@@ -509,12 +509,15 @@ function resDisplay(val) {
 
 function typeTags(mon) {
   let tags = "";
-  // hUndead monsters (e.g. vampires, unravelers, Radament) allow life/mana leech,
-  // unlike the more common lUndead (skeletons, zombies, wraiths, mummies).
-  if (mon.hUndead) {
-    tags += '<span class="type-tag tag-undead-leech" title="Leechable undead (life/mana leech works)">Undead (Leech)</span>';
-  } else if (mon.lUndead) {
-    tags += '<span class="type-tag tag-undead" title="Undead — life/mana leech does not work">Undead</span>';
+  if (mon.lUndead || mon.hUndead) {
+    const dH = mon.drain_H || 0;
+    const title = `Leech drain: ${mon.drain || 0}% / ${mon.drain_N || 0}% / ${dH}% (N/NM/H)`;
+    if (dH > 0) {
+      const label = dH >= 100 ? "Undead (Leech)" : `Undead (Leech ${dH}%)`;
+      tags += `<span class="type-tag tag-undead-leech" title="${title}">${label}</span>`;
+    } else {
+      tags += `<span class="type-tag tag-undead" title="${title}">Undead</span>`;
+    }
   }
   if (mon.demon) tags += '<span class="type-tag tag-demon">Demon</span>';
   if (mon.boss) tags += '<span class="type-tag tag-boss">Boss</span>';

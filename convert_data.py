@@ -173,6 +173,8 @@ def convert_monstats():
             "resLi_H": safe_int(row.get("ResLi(H)")),
             "resCo_H": safe_int(row.get("ResCo(H)")),
             "resPo_H": safe_int(row.get("ResPo(H)")),
+            "drain": safe_int(row.get("Drain")),
+            "drain_N": safe_int(row.get("Drain(N)")),
             "drain_H": safe_int(row.get("Drain(H)")),
             "coldeffect_H": safe_int(row.get("coldeffect(H)")),
             "lUndead": safe_int(row.get("lUndead")),

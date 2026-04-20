@@ -166,6 +166,7 @@
     border: 1px solid;
   }
   .tag-undead { border-color: #443366; color: #9980b0; }
+  .tag-undead-leech { border-color: #803040; color: #d070a0; }
   .tag-demon { border-color: #663333; color: #c06060; }
   .tag-boss { border-color: var(--gold-dim); color: var(--gold); }
   .tag-prime { border-color: #993333; color: #ff4040; }
@@ -508,7 +509,13 @@ function resDisplay(val) {
 
 function typeTags(mon) {
   let tags = "";
-  if (mon.lUndead || mon.hUndead) tags += '<span class="type-tag tag-undead">Undead</span>';
+  // hUndead monsters (e.g. vampires, unravelers, Radament) allow life/mana leech,
+  // unlike the more common lUndead (skeletons, zombies, wraiths, mummies).
+  if (mon.hUndead) {
+    tags += '<span class="type-tag tag-undead-leech" title="Leechable undead (life/mana leech works)">Undead (Leech)</span>';
+  } else if (mon.lUndead) {
+    tags += '<span class="type-tag tag-undead" title="Undead — life/mana leech does not work">Undead</span>';
+  }
   if (mon.demon) tags += '<span class="type-tag tag-demon">Demon</span>';
   if (mon.boss) tags += '<span class="type-tag tag-boss">Boss</span>';
   if (mon.primeevil) tags += '<span class="type-tag tag-prime">Prime Evil</span>';

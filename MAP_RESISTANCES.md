@@ -5,21 +5,9 @@ Highest Hell-difficulty resistance value across the regular spawn pool in each m
 Values ≥ 100 mean the monster is **immune** to that element.
 
 
-## Tier 1 (`t1x`)
+## Tier 1
 
-### `t12` — Horazon's Memory  
-*Level id(s): 142*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   | **120** |
-| Poison  |      75 |
-| Magic   |      50 |
-| Phys    | **115** |
-
-### `t11` — Ruins of Viz-jun  
+### `t11` — Ruins of Viz-Jin  
 *Level id(s): 143*
 
 | Element | Max Res |
@@ -31,93 +19,6 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Magic   |      50 |
 | Phys    | **115** |
 
-### `t13` — Bastion Keep  
-*Level id(s): 149*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    | **120** |
-| Light   |      75 |
-| Poison  |      85 |
-| Magic   | **105** |
-| Phys    | **115** |
-
-### `t14` — Sanatorium  
-*Level id(s): 167*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   | **120** |
-| Poison  | **120** |
-| Magic   | **105** |
-| Phys    |      60 |
-
-### `t15` — Royal Crypts  
-*Level id(s): 170*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    | **120** |
-| Cold    | **120** |
-| Light   |      80 |
-| Poison  |      75 |
-| Magic   |      45 |
-| Phys    |      50 |
-
-### `t16` — Ruined Cistern  
-*Level id(s): 174*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   |      75 |
-| Poison  | **120** |
-| Magic   | **105** |
-| Phys    |      60 |
-
-### `t17` — Halls of Torture  
-*Level id(s): 193*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    | **120** |
-| Light   | **120** |
-| Poison  |      85 |
-| Magic   |      35 |
-| Phys    |      50 |
-
-
-## Tier 2 (`t2x`)
-
-### `t23` — Arreat Battlefield  
-*Level id(s): 139*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   | **120** |
-| Poison  | **120** |
-| Magic   | **105** |
-| Phys    |      50 |
-
-### `t25` — Sewers of Harrogath  
-*Level id(s): 141*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    | **120** |
-| Cold    |      80 |
-| Light   |      75 |
-| Poison  | **120** |
-| Magic   |      50 |
-| Phys    |      66 |
-
 ### `t21` — Phlegethon  
 *Level id(s): 145*
 
@@ -127,6 +28,18 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Cold    |      75 |
 | Light   |      80 |
 | Poison  | **120** |
+| Magic   |      50 |
+| Phys    |      50 |
+
+### `t34` — Ancestral Trial  
+*Level id(s): 146*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    | **120** |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  |      75 |
 | Magic   |      50 |
 | Phys    |      50 |
 
@@ -154,6 +67,30 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Magic   |      50 |
 | Phys    | **115** |
 
+### `t36` — Fall of Caldeum  
+*Level id(s): 155*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  |      80 |
+| Magic   | **105** |
+| Phys    | **115** |
+
+### `t33` — Lost Temple  
+*Level id(s): 158*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    | **120** |
+| Light   |      80 |
+| Poison  |      80 |
+| Magic   | **105** |
+| Phys    |      55 |
+
 ### `t26` — Shadows of Westmarch  
 *Level id(s): 169*
 
@@ -166,65 +103,29 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Magic   | **105** |
 | Phys    |      50 |
 
-### `t28` — Skovos Stronghold Map  
-*Level id(s): 190*
 
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    | **120** |
-| Light   |      75 |
-| Poison  | **120** |
-| Magic   |      40 |
-| Phys    |      55 |
+## Tier 2
 
-### `t27` — Demon Road Map  
-*Level id(s): 191*
+### `t25` — Sewers of Harrogath  
+*Level id(s): 141*
 
 | Element | Max Res |
 |---------|--------:|
 | Fire    | **120** |
-| Cold    |      75 |
-| Light   | **120** |
-| Poison  |      75 |
-| Magic   |      40 |
-| Phys    | **115** |
-
-
-## Tier 3 (`t3x`)
-
-### `t31` — River of Blood  
-*Level id(s): 144*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   | **120** |
+| Cold    |      80 |
+| Light   |      75 |
 | Poison  | **120** |
-| Magic   | **105** |
+| Magic   |      50 |
 | Phys    |      66 |
 
-### `t34` — Ancestral Trial  
-*Level id(s): 146*
+### `t12` — Horazon's Memory  
+*Level id(s): 142*
 
 | Element | Max Res |
 |---------|--------:|
-| Fire    | **120** |
+| Fire    |      75 |
 | Cold    |      75 |
 | Light   | **120** |
-| Poison  |      75 |
-| Magic   |      50 |
-| Phys    |      50 |
-
-### `t39` — Kehjistan Marketplace  
-*Level id(s): 147*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    | **120** |
-| Cold    |      75 |
-| Light   |      75 |
 | Poison  |      75 |
 | Magic   |      50 |
 | Phys    | **115** |
@@ -241,30 +142,6 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Magic   |      75 |
 | Phys    | **115** |
 
-### `t35` — Blood Moon  
-*Level id(s): 154*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      65 |
-| Cold    |      65 |
-| Light   |      65 |
-| Poison  |      65 |
-| Magic   |      33 |
-| Phys    |      50 |
-
-### `t36` — Fall of Caldeum  
-*Level id(s): 155*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    |      75 |
-| Light   | **120** |
-| Poison  |      80 |
-| Magic   | **105** |
-| Phys    | **115** |
-
 ### `t37` — Pandemonium Citadel  
 *Level id(s): 156*
 
@@ -276,18 +153,6 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Poison  |      80 |
 | Magic   | **105** |
 | Phys    |      50 |
-
-### `t33` — Lost Temple  
-*Level id(s): 158*
-
-| Element | Max Res |
-|---------|--------:|
-| Fire    |      75 |
-| Cold    | **120** |
-| Light   |      80 |
-| Poison  |      80 |
-| Magic   | **105** |
-| Phys    |      55 |
 
 ### `t38` — Canyon of Sescheron  
 *Level id(s): 160*
@@ -301,6 +166,30 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Magic   |      55 |
 | Phys    | **115** |
 
+### `t14` — Sanatorium  
+*Level id(s): 167*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  | **120** |
+| Magic   | **105** |
+| Phys    |      60 |
+
+### `t16` — Ruined Cistern  
+*Level id(s): 174*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    |      75 |
+| Light   |      75 |
+| Poison  | **120** |
+| Magic   | **105** |
+| Phys    |      60 |
+
 ### `t3a` — Ashen Plains  
 *Level id(s): 175*
 
@@ -312,6 +201,117 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Poison  |      75 |
 | Magic   |      50 |
 | Phys    |      50 |
+
+### `t17` — Halls of Torture  
+*Level id(s): 193*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    | **120** |
+| Light   | **120** |
+| Poison  |      85 |
+| Magic   |      35 |
+| Phys    |      50 |
+
+
+## Tier 3
+
+### `t23` — Arreat Battlefield  
+*Level id(s): 139*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  | **120** |
+| Magic   | **105** |
+| Phys    |      50 |
+
+### `t31` — River of Blood  
+*Level id(s): 144*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  | **120** |
+| Magic   | **105** |
+| Phys    |      66 |
+
+### `t39` — Kehjistan Marketplace  
+*Level id(s): 147*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    | **120** |
+| Cold    |      75 |
+| Light   |      75 |
+| Poison  |      75 |
+| Magic   |      50 |
+| Phys    | **115** |
+
+### `t13` — Bastion Keep  
+*Level id(s): 149*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    | **120** |
+| Light   |      75 |
+| Poison  |      85 |
+| Magic   | **105** |
+| Phys    | **115** |
+
+### `t35` — Blood Moon  
+*Level id(s): 154*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      65 |
+| Cold    |      65 |
+| Light   |      65 |
+| Poison  |      65 |
+| Magic   |      33 |
+| Phys    |      50 |
+
+### `t15` — Royal Crypts  
+*Level id(s): 170*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    | **120** |
+| Cold    | **120** |
+| Light   |      80 |
+| Poison  |      75 |
+| Magic   |      45 |
+| Phys    |      50 |
+
+### `t28` — Skovos Stronghold  
+*Level id(s): 190*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    |      75 |
+| Cold    | **120** |
+| Light   |      75 |
+| Poison  | **120** |
+| Magic   |      40 |
+| Phys    |      55 |
+
+### `t27` — Demon Road  
+*Level id(s): 191*
+
+| Element | Max Res |
+|---------|--------:|
+| Fire    | **120** |
+| Cold    |      75 |
+| Light   | **120** |
+| Poison  |      75 |
+| Magic   |      40 |
+| Phys    | **115** |
 
 ### `t3b` — Kyovoshad  
 *Level id(s): 201*

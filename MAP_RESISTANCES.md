@@ -99,7 +99,7 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Fire    | **120** |
 | Cold    |      85 |
 | Light   |      75 |
-| Poison  | **120** |
+| Poison  |      75 |
 | Magic   | **105** |
 | Phys    |      50 |
 
@@ -174,7 +174,7 @@ Values ≥ 100 mean the monster is **immune** to that element.
 | Fire    |      75 |
 | Cold    |      75 |
 | Light   | **120** |
-| Poison  | **120** |
+| Poison  |      75 |
 | Magic   | **105** |
 | Phys    |      60 |
 

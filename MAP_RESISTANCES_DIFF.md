@@ -3,22 +3,4 @@
 Comparison of per-map highest Hell-difficulty resistance before vs after the MonStats.txt / Levels.txt update. Only maps with at least one changed value are listed. Format: `old → new` (deltas in **bold**). Values ≥ 100 mean immunity. Poison values of 1000 (placeholder) are excluded.
 
 
-## Tier 1
-
-### `t26` — Shadows of Westmarch  
-*Level id(s): 169*
-
-| Element | Old | New | Δ |
-|---------|----:|----:|--:|
-| Poison  | 120 |  75 | **-45** |
-
-
-## Tier 2
-
-### `t14` — Sanatorium  
-*Level id(s): 167*
-
-| Element | Old | New | Δ |
-|---------|----:|----:|--:|
-| Poison  | 120 |  75 | **-45** |
-
+_No resistance changes in any surveyed map._

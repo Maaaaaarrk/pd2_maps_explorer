@@ -439,7 +439,6 @@ function restoreFromHash() {
   }
 }
 
-restoreFromHash();
 window.addEventListener("hashchange", restoreFromHash);
 
 function showLevel(levelId, displayName) {
@@ -621,6 +620,11 @@ function buildMonsterTable(monsters, areaLvl) {
   html += "</tbody></table>";
   return html;
 }
+
+// Run after all const declarations above are initialized, so deep-linking
+// (e.g. #endgame/0/169) can call showLevel -> buildMonsterTable -> resStyle
+// without hitting a temporal dead zone on RES_BG.
+restoreFromHash();
 </script>
 </body>
 </html>

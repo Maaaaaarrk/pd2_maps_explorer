@@ -1,0 +1,85 @@
+================================================================
+  PD2 Tier 2 Map Comparison — Season 12 vs Season 13
+  Average base XP per monster across the Hell spawn pool
+================================================================
+
+Method:
+  Base XP per monster (Hell) = MonLvl.XP(H)[level] * MonStats.Exp(H) / 100
+  Per-map value              = mean across the map's nmon Hell spawn pool
+  Tier average               = mean across the maps in the tier
+  All XP values use CURRENT monster stats (S13 MonStats.txt). This
+  isolates the effect of the tier roster change; underlying monster
+  Exp% changes between seasons are not captured.
+
+----------------------------------------------------------------
+  SEASON 12 — TIER 2 (8 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  146  Ancestral Trial              7       61,080
+  149  Bastion Keep                 8       56,811
+  191  Demon Road                   8       44,868
+  158  Lost Temple                  7       72,823   <- highest
+  144  River of Blood               9       67,135
+  143  Ruins of Viz-Jun            11       62,588
+  190  Skovos Stronghold            7       36,811
+  151  Tomb of Zoltun Kulle         8       51,887
+       --------------------------------------------
+       TIER AVERAGE                          56,750
+
+----------------------------------------------------------------
+  SEASON 13 — TIER 2 (9 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  175  Ashen Plains                 8       64,135
+  160  Canyon of Sescheron          8       46,225
+  193  Halls of Torture             7       53,940
+  142  Horazon's Memory             8       51,622
+  156  Pandemonium Citadel          7       78,474   <- highest
+  174  Ruined Cistern               8       49,398
+  167  Sanatorium                   7       46,016
+  141  Sewers of Harrogath          8       52,854
+  150  Throne of Insanity           8       53,021
+       --------------------------------------------
+       TIER AVERAGE                          55,076
+
+----------------------------------------------------------------
+  RESULT
+----------------------------------------------------------------
+  Tier-avg base XP:  56,750  ->  55,076
+  Delta:             -1,674  (-2.9%)
+
+----------------------------------------------------------------
+  ROSTER CHANGES
+----------------------------------------------------------------
+  Stayed in T2 (0):
+
+  Dropped out of T2 in S13 (8):  avg ~56,750
+    146  Ancestral Trial         61,080
+    149  Bastion Keep            56,811
+    191  Demon Road              44,868
+    158  Lost Temple             72,823
+    144  River of Blood          67,135
+    143  Ruins of Viz-Jun        62,588
+    190  Skovos Stronghold       36,811
+    151  Tomb of Zoltun Kulle    51,887
+
+  Added to T2 in S13 (9):  avg ~55,076
+    175  Ashen Plains            64,135
+    160  Canyon of Sescheron     46,225
+    193  Halls of Torture        53,940
+    142  Horazon's Memory        51,622
+    156  Pandemonium Citadel     78,474
+    174  Ruined Cistern          49,398
+    167  Sanatorium              46,016
+    141  Sewers of Harrogath     52,854
+    150  Throne of Insanity      53,021
+
+----------------------------------------------------------------
+  TAKEAWAY
+----------------------------------------------------------------
+  T2 lost its heaviest XP maps (Lost Temple 72k, River of Blood
+  67k) and gained mostly mid/low maps. Pandemonium Citadel (78k)
+  is the new XP standout. Net: T2 is ~2.9% leaner in base XP per
+  monster. Density (MonDen) is NOT factored in — this is per-mob
+  average across the spawn pool only.
+================================================================

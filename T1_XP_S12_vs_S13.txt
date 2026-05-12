@@ -1,0 +1,80 @@
+================================================================
+  PD2 Tier 1 Map Comparison — Season 12 vs Season 13
+  Average base XP per monster across the Hell spawn pool
+================================================================
+
+Method:
+  Base XP per monster (Hell) = MonLvl.XP(H)[level] * MonStats.Exp(H) / 100
+  Per-map value              = mean across the map's nmon Hell spawn pool
+  Tier average               = mean across the maps in the tier
+  All XP values use CURRENT monster stats (S13 MonStats.txt). This
+  isolates the effect of the tier roster change; underlying monster
+  Exp% changes between seasons are not captured.
+
+----------------------------------------------------------------
+  SEASON 12 — TIER 1 (8 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  139  Arreat Battlefield           8       53,890
+  155  Fall of Caldeum              6       63,332   <- highest
+  193  Halls of Torture             7       53,940
+  142  Horazon's Memory             8       51,622
+  170  Royal Crypts                 8       39,899
+  141  Sewers of Harrogath          8       52,854
+  169  Shadows of Westmarch         7       43,781
+  148  Torajan Jungle               8       56,308
+       --------------------------------------------
+       TIER AVERAGE                          51,953
+
+----------------------------------------------------------------
+  SEASON 13 — TIER 1 (8 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  146  Ancestral Trial              7       61,080
+  155  Fall of Caldeum              6       63,332
+  158  Lost Temple                  7       72,823   <- highest
+  145  Phlegethon                  10       59,883
+  143  Ruins of Viz-Jun            11       62,588
+  169  Shadows of Westmarch         7       43,781
+  151  Tomb of Zoltun Kulle         8       51,887
+  148  Torajan Jungle               8       56,308
+       --------------------------------------------
+       TIER AVERAGE                          58,960
+
+----------------------------------------------------------------
+  RESULT
+----------------------------------------------------------------
+  Tier-avg base XP:  51,953  ->  58,960
+  Delta:             +7,007  (+13.5%)
+
+----------------------------------------------------------------
+  ROSTER CHANGES
+----------------------------------------------------------------
+  Stayed in T1 (3):
+    155  Fall of Caldeum         63,332
+    169  Shadows of Westmarch    43,781
+    148  Torajan Jungle          56,308
+
+  Dropped out of T1 in S13 (5):  avg ~50,441
+    139  Arreat Battlefield      53,890
+    193  Halls of Torture        53,940
+    142  Horazon's Memory        51,622
+    170  Royal Crypts            39,899
+    141  Sewers of Harrogath     52,854
+
+  Added to T1 in S13 (5):  avg ~61,652
+    146  Ancestral Trial         61,080
+    158  Lost Temple             72,823
+    145  Phlegethon              59,883
+    143  Ruins of Viz-Jun        62,588
+    151  Tomb of Zoltun Kulle    51,887
+
+----------------------------------------------------------------
+  TAKEAWAY
+----------------------------------------------------------------
+  T1 lost its heaviest XP maps (Halls of Torture 53k, Arreat
+  Battlefield 53k) and gained higher-XP maps. Lost Temple (72k)
+  is the new XP standout. Net: T1 is ~13.5% richer in base XP
+  per monster. Density (MonDen) is NOT factored in — this is
+  per-mob average across the spawn pool only.
+================================================================

@@ -1,0 +1,75 @@
+================================================================
+  PD2 Maps — Season 13 base XP per monster (T1 / T2 / T3)
+  Average base XP per monster across the Hell spawn pool
+================================================================
+
+Method:
+  Base XP per monster (Hell) = MonLvl.XP(H)[level] * MonStats.Exp(H) / 100
+  Per-map value              = mean across the map's nmon Hell spawn pool
+  Tier average               = mean across the maps in the tier
+
+----------------------------------------------------------------
+  SEASON 13 — TIER 1 (8 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  146  Ancestral Trial              7       61,080
+  155  Fall of Caldeum              6       63,332
+  158  Lost Temple                  7       72,823   <- highest
+  145  Phlegethon                  10       59,883
+  143  Ruins of Viz-Jun            11       62,588
+  169  Shadows of Westmarch         7       43,781
+  151  Tomb of Zoltun Kulle         8       51,887
+  148  Torajan Jungle               8       56,308
+       --------------------------------------------
+       TIER AVERAGE                          58,960
+
+----------------------------------------------------------------
+  RESULT (vs S12)
+----------------------------------------------------------------
+  Tier-avg base XP:  51,953  ->  58,960
+  Delta:             +7,007  (+13.5%)
+
+----------------------------------------------------------------
+  SEASON 13 — TIER 2 (9 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  175  Ashen Plains                 8       64,135
+  160  Canyon of Sescheron          8       46,225
+  193  Halls of Torture             7       53,940
+  142  Horazon's Memory             8       51,622
+  156  Pandemonium Citadel          7       78,474   <- highest
+  174  Ruined Cistern               8       49,398
+  167  Sanatorium                   7       46,016
+  141  Sewers of Harrogath          8       52,854
+  150  Throne of Insanity           8       53,021
+       --------------------------------------------
+       TIER AVERAGE                          55,076
+
+----------------------------------------------------------------
+  RESULT (vs S12)
+----------------------------------------------------------------
+  Tier-avg base XP:  56,750  ->  55,076
+  Delta:             -1,674  (-2.9%)
+
+----------------------------------------------------------------
+  SEASON 13 — TIER 3 (9 maps)
+----------------------------------------------------------------
+   ID  Map                       Mons   Avg base XP
+  139  Arreat Battlefield           8       53,890
+  149  Bastion Keep                 8       56,811
+  154  Blood Moon                   6       38,509
+  191  Demon Road                   8       44,869
+  147  Kehjistan Marketplace        8       59,817
+  201  Kyovoshad                    8       50,655
+  144  River of Blood               9       67,135   <- highest
+  170  Royal Crypts                 8       39,900
+  190  Skovos Stronghold            7       36,811
+       --------------------------------------------
+       TIER AVERAGE                          49,822
+
+----------------------------------------------------------------
+  RESULT (vs S12)
+----------------------------------------------------------------
+  Tier-avg base XP:  54,613  ->  49,822
+  Delta:             -4,791  (-8.8%)
+================================================================

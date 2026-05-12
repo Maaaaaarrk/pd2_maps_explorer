@@ -1,0 +1,5 @@
+Hell Resistance Change (S12 -> S13 patch) - Largest Change
+==========================================================
+
+Throne of Insanity (Level 150)
+- megademonThrone   Balrog   Poison Resist: 75 -> 120  (+45, now Poison Immune)

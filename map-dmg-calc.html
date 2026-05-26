@@ -413,9 +413,29 @@ function hasElemSources(elemKey) {
   return state.sources.some(s => s.type === elemKey && s.dmg > 0);
 }
 
+// Frames per attack of the primary (fastest-swinging) attacking source.
+// Defines the swing cadence used to convert TTK into a whole number of attacks.
+// Returns 0 when there is no attacking source.
+function primaryFpa() {
+  const fpas = state.sources.filter(s => s.fpa > 0).map(s => s.fpa);
+  return fpas.length ? Math.min(...fpas) : 0;
+}
+
+// Number of discrete attacks needed to kill, given the seconds-to-kill.
+// Rounds UP — you can't land a fractional attack to finish a kill.
+// Returns Infinity if the monster can't be killed, or null if no swing cadence exists.
+function attacksToKill(ttk) {
+  if (ttk === Infinity) return Infinity;
+  const fpa = primaryFpa();
+  if (fpa <= 0) return null;
+  const attacksPerSec = FRAMES_PER_SEC / fpa;
+  return Math.ceil(ttk * attacksPerSec);
+}
+
 // Simulate time-to-kill accounting for CB damage decay.
 // CB damage is based on current HP, so it decreases as the monster takes damage.
-// Returns { ttk, hpAfter1s } where ttk is in seconds and hpAfter1s is HP remaining after 1s.
+// Returns { ttk, hpAfter1s, attacks } where ttk is in seconds, hpAfter1s is HP
+// remaining after 1s, and attacks is the whole number of attacks to kill.
 function simulateTTK(monster) {
   const maxHp = monsterMaxHp(monster);
   let hp = maxHp;
@@ -428,8 +448,9 @@ function simulateTTK(monster) {
   if (!hasCb && !hasStatic) {
     // No CB, no Static: simple calculation
     const dps = flatDps;
-    if (dps <= 0) return { ttk: Infinity, hpAfter1s: maxHp, initialDps: 0 };
-    return { ttk: maxHp / dps, hpAfter1s: Math.max(maxHp - dps, 0), initialDps: dps };
+    if (dps <= 0) return { ttk: Infinity, hpAfter1s: maxHp, initialDps: 0, attacks: attacksToKill(Infinity) };
+    const ttk = maxHp / dps;
+    return { ttk, hpAfter1s: Math.max(maxHp - dps, 0), initialDps: dps, attacks: attacksToKill(ttk) };
   }
   // Simulate frame-by-frame for CB and/or Static decay
   const flatDmgPerFrame = flatDps / FRAMES_PER_SEC;
@@ -475,7 +496,7 @@ function simulateTTK(monster) {
   // Initial DPS includes CB + Static at full HP for display
   const initialCbDps = state.sources.reduce((sum, src) => sum + sourceCbDps(src, monster, maxHp), 0);
   const initialStaticDps = state.sources.reduce((sum, src) => src.isStatic ? sum + sourceDps(src, monster, maxHp) : sum, 0);
-  return { ttk, hpAfter1s: Math.max(hpAfter1s, 0), initialDps: flatDps + initialCbDps + initialStaticDps };
+  return { ttk, hpAfter1s: Math.max(hpAfter1s, 0), initialDps: flatDps + initialCbDps + initialStaticDps, attacks: attacksToKill(ttk) };
 }
 
 // ---- UI: Breaking Pierce ----
@@ -671,6 +692,9 @@ function render() {
       const dps = Math.round(sim.initialDps);
       const ttk = sim.ttk;
       const ttkDisplay = ttk === Infinity ? "-" : ttk < 1 ? "<1s" : ttk.toFixed(1) + "s";
+      // Whole number of attacks to kill (rounded up). null when no swing cadence exists.
+      const atk = sim.attacks;
+      const atkDisplay = atk === null ? "-" : atk === Infinity ? "-" : atk.toLocaleString();
       const remaining = maxHp > 0 ? Math.max(sim.hpAfter1s / monsterMaxHp(mon) * 100, 0) : 100;
       const dead = remaining <= 0;
 
@@ -682,6 +706,7 @@ function render() {
         </div>
         <div class="hp-label">${maxHp.toLocaleString()} HP</div>
         <div class="ttk-label">TTK: ${ttkDisplay}</div>
+        <div class="ttk-label" title="Number of attacks to kill (rounded up)">Attacks: ${atkDisplay}</div>
       </div></td>`;
       html += "</tr>";
     });

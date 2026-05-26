@@ -239,6 +239,9 @@
     <label><input type="checkbox" id="fortification"> Fortification (2x HP)</label>
   </div>
   <div class="mod-row">
+    <label><input type="checkbox" id="treacherous"> Treacherous (Eared) (+200% HP)</label>
+  </div>
+  <div class="mod-row">
     <label>+Max HP %</label>
     <input type="text" id="incMaxHp" value="0" inputmode="numeric">
   </div>
@@ -272,11 +275,10 @@ ELEM_TYPES.forEach(e => ELEM_MAP[e.key] = e);
 // ---- Monster types & elite affixes (Hell difficulty) ----
 // Sources: theamazonbasin.com wiki. This calculator models the player killing a
 // monster (DPS vs HP/resistance -> TTK), so only modifiers that change a
-// monster's HP or its resistances affect the result here. Modifiers that only
-// add monster *offense* (Extra Strong's +damage, the Enchanted auras' added
-// elemental damage, Spectral Hit's added damage) are recorded for reference but
-// flagged affectsKill:false because this tool does not simulate the monster
-// attacking the player.
+// monster's HP or its resistances affect the result here. Pure-offense affixes
+// (e.g. Extra Strong's +damage) are omitted since this tool does not simulate
+// the monster attacking the player; every affix listed below modifies HP or
+// resistances.
 
 // HP (Life) multipliers are the Hell-difficulty values.
 // https://www.theamazonbasin.com/wiki/index.php/Champion (Champion tab + sub-types)
@@ -307,7 +309,6 @@ const CHAMPION_SUBTYPES = {
 // "third immunity" suppression is NOT modelled (it depends on the full random
 // affix roll), so combined resists here are an upper bound — see effectiveRes().
 const ELITE_AFFIXES = {
-  extraStrong:   { label: "Extra Strong",       resAdd: {},                 affectsKill: false, note: "+99% monster damage (offense only)" },
   coldEnchanted: { label: "Cold Enchanted",     resAdd: { cold: 75 },       affectsKill: true,  note: "+75% cold resist; adds cold damage" },
   fireEnchanted: { label: "Fire Enchanted",     resAdd: { fire: 75 },       affectsKill: true,  note: "+75% fire resist; adds fire damage + death explosion" },
   lightEnchanted:{ label: "Lightning Enchanted",resAdd: { light: 75 },      affectsKill: true,  note: "+75% lightning resist; charged bolts on hit" },
@@ -320,7 +321,7 @@ const ELITE_AFFIXES = {
 const state = {
   breaking: {},   // per-element breaking pierce
   sources: [],    // [{type, dmg, pierce, fpa, cbChance, ranged}]
-  playerCount: 1, fortification: false, incMaxHp: 0,
+  playerCount: 1, fortification: false, treacherous: false, incMaxHp: 0,
   selectedMaps: [],
   monsterType: "normal",    // normal | champion | unique
   champSubtype: "champion", // active champion sub-type (when monsterType === champion)
@@ -347,6 +348,9 @@ function buildMapData() {
         resDm_H: mon.resDm_H, resMa_H: mon.resMa_H, resFi_H: mon.resFi_H,
         resLi_H: mon.resLi_H, resCo_H: mon.resCo_H, resPo_H: mon.resPo_H,
         minHP: realHP(mon.minHP_H, areaLvl), maxHP: realHP(mon.maxHP_H, areaLvl),
+        // Raw base HP + area level kept so HP can be recomputed at a bumped monster
+        // level (Champion +2 / Unique +3 raise base life through the MonLvl curve).
+        baseMaxHP_H: mon.maxHP_H, baseMinHP_H: mon.minHP_H, areaLvl,
       }));
       maps.push({ id: m.id, name: m.name, tier: t.tier, monsters });
     });
@@ -373,8 +377,9 @@ function typeLabelSuffix() {
     return " · " + sub.label;
   }
   if (state.monsterType === "unique") {
-    const names = activeAffixKeys().map(k => ELITE_AFFIXES[k].label);
-    return " · Unique" + (names.length ? " [" + names.join(", ") + "]" : "");
+    // Selected affixes stay visible via the sidebar checkboxes; keep the table
+    // label compact so multi-affix selections don't widen the results cell.
+    return " · Unique";
   }
   return "";
 }
@@ -409,8 +414,11 @@ function effectiveRes(mon, elemKey) {
       res += add;
     });
   }
-  // Resistances above 100 are immunity; clamp the modified value sensibly.
-  return res > 100 ? Math.min(res, 100) : res;
+  // Intentionally preserve values >100: calcRes() handles res>99 by halving
+  // breaking pierce and reducing from the TRUE resistance, so an immunity broken
+  // from e.g. 105 must stay 105 (not clamp to 100) for breaking-pierce to compute
+  // correctly. The results table flags res>99 with the `immune` class regardless.
+  return res;
 }
 
 // Damage math
@@ -531,11 +539,20 @@ function elemDps(elemKey, monster) {
 function monsterMaxHp(mon) {
   const playerBonus = 1 + (state.playerCount - 1) * 0.7;
   const fort = state.fortification ? 2 : 1;
+  const treach = state.treacherous ? 3 : 1;
   // Monster-type life multiplier (Champion/Unique). Champion uses the active
   // sub-type's life multiplier. Applied multiplicatively with /players & map mods,
   // matching how D2 layers the champion/unique life bonus on top of base life.
   const typeMult = typeHpMult();
-  return mon.maxHP * typeMult * playerBonus * fort * (1 + state.incMaxHp / 100);
+  // Champion/Unique monsters are +2/+3 levels above the base monster, which raises
+  // their BASE life through the MonLvl life curve. Recompute base HP at the bumped
+  // level; this is layered UNDER the flat champion/unique life multiplier above
+  // (both apply — the correct D2 model, not double-counting). Clamp to 110, the
+  // max monLvlData key.
+  const levelBoost = state.monsterType === "champion" ? 2 : state.monsterType === "unique" ? 3 : 0;
+  const lvl = Math.min(mon.areaLvl + levelBoost, 110);
+  const baseHp = levelBoost ? realHP(mon.baseMaxHP_H, lvl) : mon.maxHP;
+  return baseHp * typeMult * playerBonus * fort * treach * (1 + state.incMaxHp / 100);
 }
 
 function hasSources() {
@@ -774,6 +791,9 @@ document.getElementById("playerCount").addEventListener("change", ev => {
 document.getElementById("fortification").addEventListener("change", ev => {
   state.fortification = ev.target.checked; render(); updateHash();
 });
+document.getElementById("treacherous").addEventListener("change", ev => {
+  state.treacherous = ev.target.checked; render(); updateHash();
+});
 document.getElementById("incMaxHp").addEventListener("input", ev => {
   state.incMaxHp = parseInt(ev.target.value) || 0; render(); updateHash();
 });
@@ -789,7 +809,7 @@ function buildAffixCheckboxes() {
   const container = document.getElementById("affixCheckboxes");
   container.innerHTML = Object.entries(ELITE_AFFIXES).map(([k, v]) =>
     `<div class="mod-row"><label title="${v.note}">
-      <input type="checkbox" data-affix="${k}"> ${v.label}${v.affectsKill ? '' : ' *'}
+      <input type="checkbox" data-affix="${k}"> ${v.label}
     </label></div>`).join("");
   container.addEventListener("change", ev => {
     const k = ev.target.dataset.affix;
@@ -817,9 +837,9 @@ function refreshTypeUI() {
   } else {
     typeNote.style.display = "none";
   }
-  // Affix note: explain that offense-only affixes don't change the kill calc.
+  // Affix note: all listed affixes modify HP/resistances and thus affect TTK.
   const affixNote = document.getElementById("affixNote");
-  if (affixNote) affixNote.innerHTML = "Only HP/resistance effects change TTK here. * = adds monster offense only (no effect on this kill calculation).";
+  if (affixNote) affixNote.innerHTML = "Each listed affix modifies the monster's HP and/or resistances, changing TTK here.";
 }
 
 document.getElementById("monsterType").addEventListener("change", ev => {
@@ -915,6 +935,7 @@ function updateHash() {
   }
   if (state.playerCount > 1) p.pc = state.playerCount;
   if (state.fortification) p.fort = 1;
+  if (state.treacherous) p.treach = 1;
   if (state.incMaxHp) p.imhp = state.incMaxHp;
   if (state.monsterType !== "normal") p.mt = state.monsterType;
   if (state.monsterType === "champion") p.cst = state.champSubtype;
@@ -958,6 +979,7 @@ function restoreFromHash() {
 
   if (params.pc) state.playerCount = parseInt(params.pc) || 1;
   if (params.fort) state.fortification = true;
+  if (params.treach) state.treacherous = true;
   if (params.imhp) state.incMaxHp = parseInt(params.imhp) || 0;
   if (params.mt && MONSTER_TYPES[params.mt]) state.monsterType = params.mt;
   if (params.cst && CHAMPION_SUBTYPES[params.cst]) state.champSubtype = params.cst;
@@ -972,6 +994,7 @@ function restoreFromHash() {
   });
   document.getElementById("playerCount").value = state.playerCount;
   document.getElementById("fortification").checked = state.fortification;
+  document.getElementById("treacherous").checked = state.treacherous;
   document.getElementById("incMaxHp").value = state.incMaxHp;
   document.getElementById("monsterType").value = state.monsterType;
   document.getElementById("champSubtype").value = state.champSubtype;

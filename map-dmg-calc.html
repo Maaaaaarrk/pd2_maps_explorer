@@ -213,6 +213,27 @@
     </select>
   </div>
 
+  <h2>Monster Type</h2>
+  <p class="desc">Hell-difficulty modifiers. Affects HP and resistances. Source: theamazonbasin.com wiki.</p>
+  <div class="mod-row">
+    <label for="monsterType">Type</label>
+    <select id="monsterType">
+      <option value="normal">Normal</option>
+      <option value="champion">Champion</option>
+      <option value="unique">Unique (Named)</option>
+    </select>
+  </div>
+  <div class="mod-row" id="champSubtypeRow" style="display:none">
+    <label for="champSubtype">Sub-type</label>
+    <select id="champSubtype"></select>
+  </div>
+  <p class="desc" id="typeNote" style="display:none"></p>
+  <div id="affixSection" style="display:none">
+    <h3>Elite Affixes (select any)</h3>
+    <div id="affixCheckboxes"></div>
+    <p class="desc" id="affixNote"></p>
+  </div>
+
   <h2>Map Mods</h2>
   <div class="mod-row">
     <label><input type="checkbox" id="fortification"> Fortification (2x HP)</label>
@@ -248,13 +269,65 @@ const ELEM_TYPES = [
 const ELEM_MAP = {};
 ELEM_TYPES.forEach(e => ELEM_MAP[e.key] = e);
 
+// ---- Monster types & elite affixes (Hell difficulty) ----
+// Sources: theamazonbasin.com wiki. This calculator models the player killing a
+// monster (DPS vs HP/resistance -> TTK), so only modifiers that change a
+// monster's HP or its resistances affect the result here. Modifiers that only
+// add monster *offense* (Extra Strong's +damage, the Enchanted auras' added
+// elemental damage, Spectral Hit's added damage) are recorded for reference but
+// flagged affectsKill:false because this tool does not simulate the monster
+// attacking the player.
+
+// HP (Life) multipliers are the Hell-difficulty values.
+// https://www.theamazonbasin.com/wiki/index.php/Champion (Champion tab + sub-types)
+// https://www.theamazonbasin.com/wiki/index.php/Unique_(monster)
+const MONSTER_TYPES = {
+  normal:   { label: "Normal",          hpMult: 1.0 },
+  champion: { label: "Champion",        hpMult: 2.0 },  // resolved per sub-type below
+  unique:   { label: "Unique (Named)",  hpMult: 2.0 },  // 200% life in Hell
+};
+
+// Champion sub-types. hpMult and physResist are Hell-difficulty values.
+// Champion/Fanatic/Ghostly: 200% life. Possessed: 400% life. Berserker: 50% life.
+// Ghostly additionally has 80% Damage Resist (physical damage reduction).
+// Damage/AR/Defense/speed changes are noted but do not affect the kill calc.
+const CHAMPION_SUBTYPES = {
+  champion:  { label: "Champion",  hpMult: 2.0, physResist: 0,  note: "+66% dmg, +49% AR, +20% speed" },
+  ghostly:   { label: "Ghostly",   hpMult: 2.0, physResist: 80, note: "80% phys damage resist, adds cold damage" },
+  fanatic:   { label: "Fanatic",   hpMult: 2.0, physResist: 0,  note: "+66% dmg, +100% speed, -70% defense" },
+  berserker: { label: "Berserker", hpMult: 0.5, physResist: 0,  note: "50% life but +198% dmg & +198% AR" },
+  possessed: { label: "Possessed", hpMult: 4.0, physResist: 0,  note: "400% life, +66% dmg, curse immune" },
+};
+
+// Elite affix auras (uniques can roll a combination of these). Hell values.
+// resAdd: flat resistance added per element (only fields present are applied).
+// Conditions noted on the wiki ("not if it creates a third immunity", Spectral
+// Hit only "+20 if that resist is below 75%") are applied transparently below:
+// each affix's resist is added then resistances are clamped; the exact PD2
+// "third immunity" suppression is NOT modelled (it depends on the full random
+// affix roll), so combined resists here are an upper bound — see effectiveRes().
+const ELITE_AFFIXES = {
+  extraStrong:   { label: "Extra Strong",       resAdd: {},                 affectsKill: false, note: "+99% monster damage (offense only)" },
+  coldEnchanted: { label: "Cold Enchanted",     resAdd: { cold: 75 },       affectsKill: true,  note: "+75% cold resist; adds cold damage" },
+  fireEnchanted: { label: "Fire Enchanted",     resAdd: { fire: 75 },       affectsKill: true,  note: "+75% fire resist; adds fire damage + death explosion" },
+  lightEnchanted:{ label: "Lightning Enchanted",resAdd: { light: 75 },      affectsKill: true,  note: "+75% lightning resist; charged bolts on hit" },
+  poisonEnchanted:{label: "Poison Enchanted",   resAdd: { poison: 75 },     affectsKill: true,  note: "+75% poison resist; adds poison damage" },
+  magicResistant:{ label: "Magic Resistant",    resAdd: { fire: 40, cold: 40, light: 40 }, affectsKill: true, note: "+40% fire/cold/lightning resist" },
+  spectralHit:   { label: "Spectral Hit",       resAdd: { fire: 20, cold: 20, light: 20 }, affectsKill: true, spectral: true, note: "+20 fire/cold/light resist (only while that resist < 75%); adds random elemental damage" },
+  stoneSkin:     { label: "Stone Skin",         resAdd: { phys: 50 },       affectsKill: true,  note: "+50% physical damage resist; +200% base defense" },
+};
+
 const state = {
   breaking: {},   // per-element breaking pierce
   sources: [],    // [{type, dmg, pierce, fpa, cbChance, ranged}]
   playerCount: 1, fortification: false, incMaxHp: 0,
   selectedMaps: [],
+  monsterType: "normal",    // normal | champion | unique
+  champSubtype: "champion", // active champion sub-type (when monsterType === champion)
+  affixes: {},              // { affixKey: true } — only meaningful for unique
 };
 ELEM_TYPES.forEach(e => state.breaking[e.key] = 0);
+Object.keys(ELITE_AFFIXES).forEach(k => state.affixes[k] = false);
 
 let sourceIdCounter = 0;
 
@@ -281,6 +354,64 @@ function buildMapData() {
   return maps;
 }
 const allMaps = buildMapData();
+
+// ---- Monster type / affix resolution ----
+// HP multiplier from the selected monster type (and champion sub-type).
+function typeHpMult() {
+  if (state.monsterType === "champion") {
+    const sub = CHAMPION_SUBTYPES[state.champSubtype] || CHAMPION_SUBTYPES.champion;
+    return sub.hpMult;
+  }
+  return MONSTER_TYPES[state.monsterType] ? MONSTER_TYPES[state.monsterType].hpMult : 1;
+}
+
+// Short label appended to each monster row showing the selected type / sub-type /
+// active affixes (e.g. " · Possessed", " · Unique [Cold Enchanted, Stone Skin]").
+function typeLabelSuffix() {
+  if (state.monsterType === "champion") {
+    const sub = CHAMPION_SUBTYPES[state.champSubtype] || CHAMPION_SUBTYPES.champion;
+    return " · " + sub.label;
+  }
+  if (state.monsterType === "unique") {
+    const names = activeAffixKeys().map(k => ELITE_AFFIXES[k].label);
+    return " · Unique" + (names.length ? " [" + names.join(", ") + "]" : "");
+  }
+  return "";
+}
+
+// Active affixes only apply to Unique monsters (champions don't roll affix auras;
+// Ghostly's phys resist is folded in via champSubtype.physResist below).
+function activeAffixKeys() {
+  if (state.monsterType !== "unique") return [];
+  return Object.keys(state.affixes).filter(k => state.affixes[k]);
+}
+
+// Effective resistance for a monster on one element, after type/affix modifiers.
+// Mirrors how mon[resKey] was read directly before this feature, so all existing
+// damage math keeps working unchanged — it just sees the modified value.
+function effectiveRes(mon, elemKey) {
+  let res = mon[ELEM_MAP[elemKey].resKey];
+
+  // Champion sub-type physical damage resist (Ghostly: 80%).
+  if (state.monsterType === "champion" && elemKey === "phys") {
+    const sub = CHAMPION_SUBTYPES[state.champSubtype];
+    if (sub && sub.physResist) res += sub.physResist;
+  }
+
+  // Unique elite affix auras.
+  if (state.monsterType === "unique") {
+    activeAffixKeys().forEach(k => {
+      const afx = ELITE_AFFIXES[k];
+      const add = afx.resAdd[elemKey];
+      if (!add) return;
+      // Spectral Hit's +20 only applies while that resist is below 75 (pre-affix base).
+      if (afx.spectral && mon[ELEM_MAP[elemKey].resKey] >= 75) return;
+      res += add;
+    });
+  }
+  // Resistances above 100 are immunity; clamp the modified value sensibly.
+  return res > 100 ? Math.min(res, 100) : res;
+}
 
 // Damage math
 function calcRes(res, pierceNon, pierceBreak) {
@@ -336,12 +467,12 @@ function sourceDps(src, monster, currentHp) {
     if (src.type !== "light") return 0; // Static is lightning-only
     const hp = currentHp !== undefined ? currentHp : monsterMaxHp(monster);
     const rawStatic = staticRawDmgPerHit(src, hp, monsterMaxHp(monster));
-    const lightRes = monster[ELEM_MAP["light"].resKey];
+    const lightRes = effectiveRes(monster, "light");
     const staticAfterRes = calcDmgHit(rawStatic, lightRes, src.pierce, state.breaking["light"]);
     const hitsPerSec = src.fpa > 0 ? FRAMES_PER_SEC / src.fpa : 0;
     return staticAfterRes * hitsPerSec;
   }
-  const res = monster[elem.resKey];
+  const res = effectiveRes(monster, src.type);
   const dmgPerHit = calcDmgHit(src.dmg, res, src.pierce, state.breaking[src.type]);
   if (src.type === "poison") {
     // Poison: damage per second is just the listed dmg after res (it's total/duration, applied per hit)
@@ -364,7 +495,7 @@ function sourceCbDps(src, monster, currentHp) {
   const hp = currentHp !== undefined ? currentHp : monsterMaxHp(monster);
   const rawCb = cbDmgPerHit(src, hp);
   // CB deals physical damage, apply physical resistance
-  const physRes = monster[ELEM_MAP["phys"].resKey];
+  const physRes = effectiveRes(monster, "phys");
   const cbAfterRes = calcDmgHit(rawCb, physRes, 0, state.breaking["phys"]);
   const hitsPerSec = FRAMES_PER_SEC / src.fpa;
   return cbAfterRes * hitsPerSec;
@@ -381,7 +512,7 @@ function elemDps(elemKey, monster) {
     // Only strongest poison source (Finding 3)
     const poisonSources = state.sources.filter(s => s.type === "poison" && s.dmg > 0);
     if (poisonSources.length === 0) return 0;
-    const res = monster[ELEM_MAP["poison"].resKey];
+    const res = effectiveRes(monster, "poison");
     return Math.max(...poisonSources.map(src =>
       calcDmgHit(src.dmg, res, src.pierce, state.breaking["poison"])
     ));
@@ -400,7 +531,11 @@ function elemDps(elemKey, monster) {
 function monsterMaxHp(mon) {
   const playerBonus = 1 + (state.playerCount - 1) * 0.7;
   const fort = state.fortification ? 2 : 1;
-  return mon.maxHP * playerBonus * fort * (1 + state.incMaxHp / 100);
+  // Monster-type life multiplier (Champion/Unique). Champion uses the active
+  // sub-type's life multiplier. Applied multiplicatively with /players & map mods,
+  // matching how D2 layers the champion/unique life bonus on top of base life.
+  const typeMult = typeHpMult();
+  return mon.maxHP * typeMult * playerBonus * fort * (1 + state.incMaxHp / 100);
 }
 
 function hasSources() {
@@ -454,7 +589,7 @@ function simulateTTK(monster) {
   }
   // Simulate frame-by-frame for CB and/or Static decay
   const flatDmgPerFrame = flatDps / FRAMES_PER_SEC;
-  const physRes = monster[ELEM_MAP["phys"].resKey];
+  const physRes = effectiveRes(monster, "phys");
   const physResAfter = calcRes(physRes, 0, state.breaking["phys"]);
   const cbResMult = physResAfter > 99 ? 0 : physResAfter < 0 ? (1 + Math.abs(physResAfter) / 100) : (1 - physResAfter / 100);
   let frame = 0;
@@ -478,7 +613,7 @@ function simulateTTK(monster) {
       }
       if (src.isStatic && src.type === "light") {
         const rawStatic = staticRawDmgPerHit(src, Math.max(hp, 0), maxHp);
-        const lightRes = monster[ELEM_MAP["light"].resKey];
+        const lightRes = effectiveRes(monster, "light");
         const staticAfterRes = calcDmgHit(rawStatic, lightRes, src.pierce, state.breaking["light"]);
         hp -= staticAfterRes;
       }
@@ -643,6 +778,59 @@ document.getElementById("incMaxHp").addEventListener("input", ev => {
   state.incMaxHp = parseInt(ev.target.value) || 0; render(); updateHash();
 });
 
+// ---- UI: Monster type / champion sub-type / elite affixes ----
+function buildChampSubtypeOptions() {
+  const sel = document.getElementById("champSubtype");
+  sel.innerHTML = Object.entries(CHAMPION_SUBTYPES)
+    .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+}
+
+function buildAffixCheckboxes() {
+  const container = document.getElementById("affixCheckboxes");
+  container.innerHTML = Object.entries(ELITE_AFFIXES).map(([k, v]) =>
+    `<div class="mod-row"><label title="${v.note}">
+      <input type="checkbox" data-affix="${k}"> ${v.label}${v.affectsKill ? '' : ' *'}
+    </label></div>`).join("");
+  container.addEventListener("change", ev => {
+    const k = ev.target.dataset.affix;
+    if (!k) return;
+    state.affixes[k] = ev.target.checked;
+    render(); updateHash();
+  });
+}
+
+// Show/hide the sub-type row, affix section, and notes based on monster type.
+function refreshTypeUI() {
+  const isChamp = state.monsterType === "champion";
+  const isUnique = state.monsterType === "unique";
+  document.getElementById("champSubtypeRow").style.display = isChamp ? "" : "none";
+  document.getElementById("affixSection").style.display = isUnique ? "" : "none";
+
+  const typeNote = document.getElementById("typeNote");
+  if (isChamp) {
+    const sub = CHAMPION_SUBTYPES[state.champSubtype] || CHAMPION_SUBTYPES.champion;
+    typeNote.textContent = `${sub.label}: ${Math.round(sub.hpMult * 100)}% life — ${sub.note}.`;
+    typeNote.style.display = "";
+  } else if (isUnique) {
+    typeNote.textContent = "Unique: 200% life + selected affix auras (Hell rolls 3).";
+    typeNote.style.display = "";
+  } else {
+    typeNote.style.display = "none";
+  }
+  // Affix note: explain that offense-only affixes don't change the kill calc.
+  const affixNote = document.getElementById("affixNote");
+  if (affixNote) affixNote.innerHTML = "Only HP/resistance effects change TTK here. * = adds monster offense only (no effect on this kill calculation).";
+}
+
+document.getElementById("monsterType").addEventListener("change", ev => {
+  state.monsterType = ev.target.value;
+  refreshTypeUI(); render(); updateHash();
+});
+document.getElementById("champSubtype").addEventListener("change", ev => {
+  state.champSubtype = ev.target.value;
+  refreshTypeUI(); render(); updateHash();
+});
+
 // ---- Render results ----
 function render() {
   const main = document.getElementById("results");
@@ -663,10 +851,12 @@ function render() {
         </tr></thead><tbody>`;
 
     map.monsters.forEach(mon => {
-      html += `<tr><td><span class="mon-name">${mon.name}</span><br><span class="mon-type">${mon.type}</span></td>`;
+      html += `<tr><td><span class="mon-name">${mon.name}</span><br><span class="mon-type">${mon.type}${typeLabelSuffix()}</span></td>`;
 
       ELEM_TYPES.forEach(e => {
-        const res = mon[e.resKey];
+        // Use the type/affix-modified resistance so immunity + arrow display
+        // reflect Stone Skin / Ghostly / Enchanted / Magic Resistant / Spectral Hit.
+        const res = effectiveRes(mon, e.key);
         const totalBreak = state.breaking[e.key];
         const srcPierces = state.sources.filter(s => s.type === e.key).map(s => s.pierce);
         const uniquePierces = [...new Set(srcPierces)];
@@ -726,6 +916,12 @@ function updateHash() {
   if (state.playerCount > 1) p.pc = state.playerCount;
   if (state.fortification) p.fort = 1;
   if (state.incMaxHp) p.imhp = state.incMaxHp;
+  if (state.monsterType !== "normal") p.mt = state.monsterType;
+  if (state.monsterType === "champion") p.cst = state.champSubtype;
+  if (state.monsterType === "unique") {
+    const on = activeAffixKeys();
+    if (on.length) p.afx = on.join(",");
+  }
   if (state.selectedMaps.length) p.maps = state.selectedMaps.join(",");
   const qs = Object.entries(p).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
   history.replaceState(null, "", "#" + qs);
@@ -763,6 +959,11 @@ function restoreFromHash() {
   if (params.pc) state.playerCount = parseInt(params.pc) || 1;
   if (params.fort) state.fortification = true;
   if (params.imhp) state.incMaxHp = parseInt(params.imhp) || 0;
+  if (params.mt && MONSTER_TYPES[params.mt]) state.monsterType = params.mt;
+  if (params.cst && CHAMPION_SUBTYPES[params.cst]) state.champSubtype = params.cst;
+  if (params.afx) {
+    params.afx.split(",").forEach(k => { if (ELITE_AFFIXES[k]) state.affixes[k] = true; });
+  }
   if (params.maps) state.selectedMaps = params.maps.split(",").map(Number);
 
   // Sync UI
@@ -772,6 +973,12 @@ function restoreFromHash() {
   document.getElementById("playerCount").value = state.playerCount;
   document.getElementById("fortification").checked = state.fortification;
   document.getElementById("incMaxHp").value = state.incMaxHp;
+  document.getElementById("monsterType").value = state.monsterType;
+  document.getElementById("champSubtype").value = state.champSubtype;
+  document.querySelectorAll("#affixCheckboxes input[type=checkbox]").forEach(cb => {
+    if (cb.dataset.affix) cb.checked = !!state.affixes[cb.dataset.affix];
+  });
+  refreshTypeUI();
   document.querySelectorAll("#mapCheckboxes input[type=checkbox]").forEach(cb => {
     cb.checked = state.selectedMaps.includes(parseInt(cb.value));
   });
@@ -781,7 +988,10 @@ function restoreFromHash() {
 // Init
 buildBreakInputs();
 buildMapCheckboxes();
+buildChampSubtypeOptions();
+buildAffixCheckboxes();
 restoreFromHash();
+refreshTypeUI();
 render();
 </script>
 </body>

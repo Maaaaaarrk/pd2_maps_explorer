@@ -1,4 +1,5 @@
 # PD2 Maps Explorer
+> **Moved:** these tools now live at [https://hiimpd2.com](https://hiimpd2.com). The pages in this repo redirect to their hiimpd2.com equivalents.
 
 A reference tool for [Project Diablo 2](https://www.projectdiablo2.com/) that lets you browse level and monster data for Hell difficulty.
 
